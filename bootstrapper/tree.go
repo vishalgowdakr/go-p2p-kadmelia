@@ -4,29 +4,29 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"sort"
 	"strconv"
 )
 
 const MARKER = -1
 
 type Btree struct {
-	root *Node
+	Root *Node
 }
 
 type NodeAddr struct {
-	id []byte
-	ip string
+	Id []byte
+	Ip string
 }
 
 type Node struct {
-	key   *NodeAddr
-	left  *Node
-	right *Node
+	Key    *NodeAddr
+	Left   *Node
+	Right  *Node
+	Parent *Node
 }
 
 func NewNode(key *NodeAddr) *Node {
-	return &Node{key: key, left: nil, right: nil}
+	return &Node{Key: key, Left: nil, Right: nil}
 }
 
 // Function to Serialize the binary tree to a file
@@ -36,16 +36,16 @@ func Serialize(root *Node, writer *bufio.Writer) {
 		return
 	}
 	// Serialize node address: id length, id bytes, and ip string
-	writer.WriteString(fmt.Sprintf("%d %s ", len(root.key.id), root.key.ip))
-	for _, b := range root.key.id {
+	writer.WriteString(fmt.Sprintf("%d %s ", len(root.Key.Id), root.Key.Ip))
+	for _, b := range root.Key.Id {
 		writer.WriteString(fmt.Sprintf("%d ", b))
 	}
-	Serialize(root.left, writer)
-	Serialize(root.right, writer)
+	Serialize(root.Left, writer)
+	Serialize(root.Right, writer)
 }
 
 // Function to deSerialize the binary tree from a file
-func deSerialize(scanner *bufio.Scanner) *Node {
+func DeSerialize(scanner *bufio.Scanner) *Node {
 	if !scanner.Scan() {
 		return nil
 	}
@@ -66,18 +66,18 @@ func deSerialize(scanner *bufio.Scanner) *Node {
 			id[i] = byte(b)
 		}
 	}
-	root := NewNode(&NodeAddr{id: id, ip: ip})
-	root.left = deSerialize(scanner)
-	root.right = deSerialize(scanner)
+	root := NewNode(&NodeAddr{Id: id, Ip: ip})
+	root.Left = DeSerialize(scanner)
+	root.Right = DeSerialize(scanner)
 	return root
 }
 
 // Inorder traversal of the binary tree
-func inorder(root *Node) {
+func Inorder(root *Node) {
 	if root != nil {
-		inorder(root.left)
-		fmt.Printf("ID: %v, IP: %s\n", root.key.id, root.key.ip)
-		inorder(root.right)
+		Inorder(root.Left)
+		fmt.Printf("ID: %v, IP: %s\n", root.Key.Id, root.Key.Ip)
+		Inorder(root.Right)
 	}
 }
 
@@ -86,61 +86,12 @@ func GetBTree() Btree {
 	var btree Btree
 	file, err := os.Open("tree.txt")
 	if err != nil {
-		btree.root = nil
+		btree.Root = &Node{}
 		return btree
 	}
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
 	scanner.Split(bufio.ScanWords)
-	btree.root = deSerialize(scanner)
+	btree.Root = DeSerialize(scanner)
 	return btree
-}
-
-// Function to find the K nearest nodes based on the given ID
-func GetKNearestNodes(btree Btree, id []byte, k int) []*NodeAddr {
-	var nearestNodes []*NodeAddr
-
-	// Helper function to compute Hamming distance
-	hammingDistance := func(id1, id2 []byte) int {
-		if len(id1) != len(id2) {
-			return -1
-		}
-		distance := 0
-		for i := 0; i < len(id1); i++ {
-			if id1[i] != id2[i] {
-				distance++
-			}
-		}
-		return distance
-	}
-
-	// Recursive function to find the K nearest nodes
-	var findNearest func(*Node)
-	findNearest = func(node *Node) {
-		if node == nil {
-			return
-		}
-		// Calculate the distance from the current node to the target ID
-		distance := hammingDistance(node.key.id, id)
-		// Insert the node into the list of nearest nodes if within K limit
-		if len(nearestNodes) < k {
-			nearestNodes = append(nearestNodes, node.key)
-		} else {
-			// Check if the current node is closer than the farthest in the nearest nodes
-			farthestDistance := hammingDistance(nearestNodes[len(nearestNodes)-1].id, id)
-			if distance < farthestDistance {
-				nearestNodes[len(nearestNodes)-1] = node.key
-			}
-		}
-		// Sort the nodes by distance and keep only the K closest ones
-		sort.Slice(nearestNodes, func(i, j int) bool {
-			return hammingDistance(nearestNodes[i].id, id) < hammingDistance(nearestNodes[j].id, id)
-		})
-		// Recur for left and right subtrees
-		findNearest(node.left)
-		findNearest(node.right)
-	}
-
-	findNearest(btree.root)
-	return nearestNodes
 }

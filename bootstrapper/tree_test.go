@@ -1,86 +1,59 @@
-package bootstrapper
+package bootstrapper_test
 
 import (
 	"bufio"
-	"bytes"
+	"fmt"
+	b "go-p2p/bootstrapper"
 	"os"
 	"testing"
 )
 
-func TestSerializationDeserialization(t *testing.T) {
+func TestBtreeSerialization(t *testing.T) {
 	// Create a sample binary tree
-	root := NewNode(&NodeAddr{id: []byte{1, 0, 1, 0}, ip: "192.168.1.1"})
-	root.left = NewNode(&NodeAddr{id: []byte{1, 1, 0, 0}, ip: "192.168.1.2"})
-	root.right = NewNode(&NodeAddr{id: []byte{0, 1, 0, 1}, ip: "192.168.1.3"})
-	root.left.left = NewNode(&NodeAddr{id: []byte{0, 0, 0, 1}, ip: "192.168.1.4"})
-	root.left.right = NewNode(&NodeAddr{id: []byte{1, 0, 1, 1}, ip: "192.168.1.5"})
+	root := b.NewNode(&b.NodeAddr{Id: []byte{1, 2, 3}, Ip: "192.168.1.1"})
+	root.Left = b.NewNode(&b.NodeAddr{Id: []byte{4, 5}, Ip: "192.168.1.2"})
+	root.Right = b.NewNode(&b.NodeAddr{Id: []byte{6, 7}, Ip: "192.168.1.3"})
+	root.Left.Left = b.NewNode(&b.NodeAddr{Id: []byte{8}, Ip: "192.168.1.4"})
 
-	// Serialize the tree to a buffer
-	var buffer bytes.Buffer
-	writer := bufio.NewWriter(&buffer)
-	Serialize(root, writer)
+	// Serialize the binary tree to a file
+	file, err := os.Create("tree_test.txt")
+	if err != nil {
+		t.Fatalf("Failed to create file: %v", err)
+	}
+	writer := bufio.NewWriter(file)
+	b.Serialize(root, writer)
 	writer.Flush()
+	file.Close()
 
-	// Deserialize the tree from the buffer
-	scanner := bufio.NewScanner(&buffer)
+	// DeSerialize the binary tree from the file
+	file, err = os.Open("tree_test.txt")
+	if err != nil {
+		t.Fatalf("Failed to open file: %v", err)
+	}
+	scanner := bufio.NewScanner(file)
 	scanner.Split(bufio.ScanWords)
-	deserializedRoot := deSerialize(scanner)
+	deSerializedRoot := b.DeSerialize(scanner)
+	file.Close()
 
-	// Verify the tree structure
-	if !compareTrees(root, deserializedRoot) {
-		t.Error("Deserialized tree does not match original tree")
+	// Perform inorder traversal of the deSerialized tree and compare
+	expectedInorder := "ID: [8], IP: 192.168.1.4\nID: [4 5], IP: 192.168.1.2\nID: [1 2 3], IP: 192.168.1.1\nID: [6 7], IP: 192.168.1.3\n"
+	actualInorder := captureInorder(deSerializedRoot)
+	if expectedInorder != actualInorder {
+		t.Fatalf("Expected inorder traversal: %s, but got: %s", expectedInorder, actualInorder)
 	}
 }
 
-func TestGetKNearestNodes(t *testing.T) {
-	// Construct a sample binary tree
-	root := NewNode(&NodeAddr{id: []byte{1, 0, 1, 0}, ip: "192.168.1.1"})
-	root.left = NewNode(&NodeAddr{id: []byte{1, 1, 0, 0}, ip: "192.168.1.2"})
-	root.right = NewNode(&NodeAddr{id: []byte{0, 1, 0, 1}, ip: "192.168.1.3"})
-	root.left.left = NewNode(&NodeAddr{id: []byte{0, 0, 0, 1}, ip: "192.168.1.4"})
-	root.left.right = NewNode(&NodeAddr{id: []byte{1, 0, 1, 1}, ip: "192.168.1.5"})
-
-	btree := Btree{root: root}
-
-	// Find the 3 nearest nodes to a given ID
-	id := []byte{1, 0, 1, 1}
-	k := 3
-	nearestNodes := GetKNearestNodes(btree, id, k)
-
-	// Verify the number of nearest nodes found
-	if len(nearestNodes) != k {
-		t.Errorf("Expected %d nearest nodes, but got %d", k, len(nearestNodes))
+func captureInorder(root *b.Node) string {
+	if root == nil {
+		return ""
 	}
-
-	// Verify the nearest nodes are correct
-	expectedIPs := []string{"192.168.1.5", "192.168.1.1", "192.168.1.2"}
-	for i, node := range nearestNodes {
-		if node.ip != expectedIPs[i] {
-			t.Errorf("Expected IP %s, but got %s", expectedIPs[i], node.ip)
-		}
+	result := ""
+	if root.Left != nil {
+		result += captureInorder(root.Left)
 	}
-}
-
-func compareTrees(node1, node2 *Node) bool {
-	if node1 == nil && node2 == nil {
-		return true
+	result += "ID: " + fmt.Sprint(root.Key.Id) + ", IP: " + root.Key.Ip + "\n"
+	if root.Right != nil {
+		result += captureInorder(root.Right)
 	}
-	if node1 == nil || node2 == nil {
-		return false
-	}
-	if !bytes.Equal(node1.key.id, node2.key.id) || node1.key.ip != node2.key.ip {
-		return false
-	}
-	return compareTrees(node1.left, node2.left) && compareTrees(node1.right, node2.right)
-}
-
-func TestMain(m *testing.M) {
-	// Set up test environment
-	code := m.Run()
-
-	// Clean up test environment
-	os.Remove("tree.txt")
-
-	// Exit
-	os.Exit(code)
+	return result
 }
