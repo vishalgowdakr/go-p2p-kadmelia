@@ -17,4 +17,9 @@ Node with Routing Table
 File Sharing using the overlay network
 	[ ] File sharding
 	[ ] Get the table of target nodes with the help of bootstrap server
+	[ ] Share the file with target nodes with acknowledgment
+	
+Torrent File Building
 	[ ]
+	
+CLI or Android app
