@@ -41,19 +41,21 @@ func StrToIntArr(str string) []int {
 	return intArr
 }
 
-/* TODO */
 func (tree Tree) SaveToDisk() error {
 	return nil
 }
 
-func (tree Tree) Insert(node *Node) bool {
+func (tree *Tree) Insert(node *Node) bool {
+	// Check if tree or node is nil
+	if tree == nil || tree.Head == nil || node == nil {
+		return false
+	}
+
 	id := StrToIntArr(node.Addr.Id)
 	if len(id) == 0 {
 		return false
 	}
-	if tree.Head.Addr == nil {
-		return false
-	}
+
 	curr := tree.Head
 	for _, bit := range id {
 		if curr.Addr != nil {
@@ -88,7 +90,6 @@ func (tree Tree) Print() {
 		fmt.Println("Empty tree")
 		return
 	}
-
 	printNode(tree.Head, 0, 0)
 }
 
@@ -96,21 +97,18 @@ func printNode(node *Node, level int, dir int) {
 	if node == nil {
 		return
 	}
-
 	indent := strings.Repeat("  ", level)
-
 	if node.Addr != nil {
 		fmt.Printf("%s- ID: %s, IP: %s\n", indent, node.Addr.Id, node.Addr.Ip)
 	} else {
 		fmt.Printf("%s- %d\n", indent, dir)
 	}
-
 	printNode(node.Left, level+1, 0)
 	printNode(node.Right, level+1, 1)
 }
 
 func TreeSearch(n *Node, visited_map map[*Node]bool, nodes *[]*Node) {
-	if n == nil || visited_map[n] == true || len(*nodes) == K {
+	if n == nil || visited_map == nil || nodes == nil || visited_map[n] == true || len(*nodes) == K {
 		return
 	}
 	visited_map[n] = true
@@ -123,9 +121,15 @@ func TreeSearch(n *Node, visited_map map[*Node]bool, nodes *[]*Node) {
 }
 
 func (tree Tree) FindNode(id string) *Node {
+	if tree.Head == nil {
+		return nil
+	}
 	curr := tree.Head
 	bits := StrToIntArr(id)
 	for _, bit := range bits {
+		if curr == nil {
+			return nil
+		}
 		if curr.Addr != nil && curr.Addr.Id == id {
 			return curr
 		}
@@ -141,10 +145,15 @@ func (tree Tree) FindNode(id string) *Node {
 func (tree Tree) GetKNearestNodes(id string) []NodeAddr {
 	nodes := []*Node{}
 	n := tree.FindNode(id)
+	if n == nil {
+		return []NodeAddr{}
+	}
 	TreeSearch(n, map[*Node]bool{}, &nodes)
 	knodes := []NodeAddr{}
 	for _, node := range nodes {
-		knodes = append(knodes, *node.Addr)
+		if node != nil && node.Addr != nil {
+			knodes = append(knodes, *node.Addr)
+		}
 	}
 	return knodes
 }
