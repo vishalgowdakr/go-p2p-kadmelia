@@ -48,11 +48,25 @@ func TestTreeInsert(test *testing.T) {
 		Ip: "192.168.0.1",
 	}
 	node1 := t.NewNode(nodeAddr1)
+
 	nodeAddr2 := t.NodeAddr{
 		Id: "1011010",
 		Ip: "192.168.0.2",
 	}
 	node2 := t.NewNode(nodeAddr2)
+
+	nodeAddr3 := t.NodeAddr{
+		Id: "11111",
+		Ip: "192.168.0.3",
+	}
+	node3 := t.NewNode(nodeAddr3)
+
+	nodeAddr4 := t.NodeAddr{
+		Id: "00000",
+		Ip: "192.168.0.4",
+	}
+	node4 := t.NewNode(nodeAddr4)
+
 	TestCases := []struct {
 		name     string
 		id       []int
@@ -69,6 +83,18 @@ func TestTreeInsert(test *testing.T) {
 			name:     "tc2",
 			id:       []int{1, 0, 1, 1, 0, 1, 0},
 			node:     node2,
+			expected: true,
+		},
+		{
+			name:     "tc4_all_ones",
+			id:       []int{1, 1, 1, 1, 1},
+			node:     node3,
+			expected: true,
+		},
+		{
+			name:     "tc5_all_zeros",
+			id:       []int{0, 0, 0, 0, 0},
+			node:     node4,
 			expected: true,
 		},
 	}

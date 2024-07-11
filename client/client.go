@@ -7,7 +7,7 @@ import (
 	"net/rpc"
 )
 
-func RegisterNewNode(addr t.NodeAddr) error {
+func RegisterNewNode(addr t.NodeAddr) ([]t.NodeAddr, error) {
 	client, err := rpc.DialHTTP("tcp", "localhost"+":2233")
 	if err != nil {
 		log.Fatal("dialing:", err)
@@ -17,13 +17,10 @@ func RegisterNewNode(addr t.NodeAddr) error {
 	if err != nil {
 		log.Fatal("register error:", err)
 	}
-	for _, node := range nodes {
-		fmt.Println(node.Id)
-	}
-	return nil
+	return nodes, nil
 }
 
-func GetKNearestNodes(id string) error {
+func GetKNearestNodes(id string) ([]t.NodeAddr, error) {
 	client, err := rpc.DialHTTP("tcp", "localhost"+":2233")
 	if err != nil {
 		log.Fatal("dialing:", err)
@@ -36,5 +33,5 @@ func GetKNearestNodes(id string) error {
 	for _, node := range nodes {
 		fmt.Println(node.Id)
 	}
-	return nil
+	return nodes, nil
 }
