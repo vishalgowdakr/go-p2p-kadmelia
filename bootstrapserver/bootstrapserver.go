@@ -1,7 +1,6 @@
 package bootstrapserver
 
 import (
-	"fmt"
 	t "go-p2p/tree"
 	"log"
 	"net"
@@ -28,11 +27,9 @@ func StartRpcServer() {
 	server := new(BootstrapServer)
 	rpc.Register(server)
 	rpc.HandleHTTP()
-	port := 2233
 	l, e := net.Listen("tcp", ":2233")
 	if e != nil {
 		log.Fatal("listen error:", e)
 	}
 	http.Serve(l, nil)
-	fmt.Print("Bootstrap server listening on port : " + string(port))
 }

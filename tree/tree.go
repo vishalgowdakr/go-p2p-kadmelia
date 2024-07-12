@@ -7,6 +7,8 @@ import (
 
 const K = 4
 
+const IdLength = 160
+
 type NodeAddr struct {
 	Id string
 	Ip string
@@ -121,17 +123,16 @@ func TreeSearch(n *Node, visited_map map[*Node]bool, nodes *[]*Node) {
 }
 
 func FindArbNode(node *Node) *Node {
+	if node == nil {
+		return nil
+	}
 	if node.Addr != nil {
 		return node
 	}
-	left := node.Left
-	right := node.Right
-	if left != nil {
-		FindArbNode(left)
-	} else {
-		FindArbNode(right)
+	if left := FindArbNode(node.Left); left != nil {
+		return left
 	}
-	return nil
+	return FindArbNode(node.Right)
 }
 
 func (tree Tree) FindNode(id string) *Node {
@@ -141,22 +142,30 @@ func (tree Tree) FindNode(id string) *Node {
 	curr := tree.Head
 	bits := StrToIntArr(id)
 	for _, bit := range bits {
+		if curr == nil {
+			return nil
+		}
 		if curr.Addr != nil && curr.Addr.Id == id {
 			return curr
 		}
 		if bit == 0 {
 			if curr.Left == nil {
-				return FindArbNode(curr) // Use current node if left child is nil
+				return FindArbNode(curr)
 			}
 			curr = curr.Left
 		} else if bit == 1 {
 			if curr.Right == nil {
-				return FindArbNode(curr) // Use current node if right child is nil
+				return FindArbNode(curr)
 			}
 			curr = curr.Right
 		}
 	}
-	return FindArbNode(curr) // If we've exhausted all bits, find arbitrary node from current
+	// After exhausting all bits, check if we've found the node
+	if curr != nil && curr.Addr != nil && curr.Addr.Id == id {
+		return curr
+	}
+	// If not, find an arbitrary node with an address
+	return FindArbNode(curr)
 }
 
 func (tree Tree) GetKNearestNodes(id string) []NodeAddr {
