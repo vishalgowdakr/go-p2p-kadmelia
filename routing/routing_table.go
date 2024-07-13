@@ -32,7 +32,7 @@ func xor(a, b []byte) ([]byte, error) {
 }
 
 // XORStrings performs XOR on two strings and returns the number of leading zeros in the binary representation of the result until the first 1 is encountered.
-func XORStrings(s1, s2 string) (int, error) {
+func xorStrings(s1, s2 string) (int, error) {
 	b1 := []byte(s1)
 	b2 := []byte(s2)
 
@@ -78,7 +78,8 @@ func NewRoutingTable(ID string) RoutingTable {
 		bitStr := strconv.Itoa(bit)
 		tempID += bitStr
 		bucket := Bucket{
-			ID: tempID,
+			ID:   tempID,
+			Size: 0,
 		}
 		rt = append(rt, bucket)
 	}
@@ -90,6 +91,7 @@ func ConstructRoutingTable(rt, prt RoutingTable) RoutingTable {
 	for i, bucket := range prt {
 		if bucket.ID == rt[i].ID {
 			rt[i].List = bucket.List
+			rt[i].Size = bucket.Size
 		}
 	}
 	return rt
@@ -102,7 +104,7 @@ func Ping(peer *peerstore.AddrInfo) bool {
 }
 
 // InsertIntoBucket inserts a peer into the bucket.
-func (bkt *Bucket) InsertIntoBucket(peer *peerstore.AddrInfo) {
+func (bkt *Bucket) insertIntoBucket(peer *peerstore.AddrInfo) {
 	frontElement := bkt.List.Front()
 	if frontElement != nil {
 		addrInfo, ok := frontElement.Value.(*peerstore.AddrInfo)
@@ -133,12 +135,12 @@ func (rt *RoutingTable) InsertIntoRoutingTable(ma multiaddr.Multiaddr) error {
 	}
 
 	peerID := peer.ID
-	bucketIndex, err := XORStrings(myID, peerID.String())
+	bucketIndex, err := xorStrings(myID, peerID.String())
 	if err != nil {
 		return err
 	}
 
-	(*rt)[bucketIndex].InsertIntoBucket(peer)
+	(*rt)[bucketIndex].insertIntoBucket(peer)
 	return nil
 }
 

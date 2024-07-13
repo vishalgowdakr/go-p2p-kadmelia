@@ -23,7 +23,7 @@ func (server BootstrapServer) GetKNearestNodes(id *string, nodes *[]t.NodeAddr) 
 	return nil
 }
 
-func StartRpcServer() {
+func StartBootstrapServer() {
 	server := new(BootstrapServer)
 	rpc.Register(server)
 	rpc.HandleHTTP()

@@ -11,7 +11,7 @@ func main() {
 	if args == "bootstrapserver" {
 		// Start the RPC server
 		fmt.Print("Bootstrap server listening on port : 2233")
-		bootstrapserver.StartRpcServer()
+		bootstrapserver.StartBootstrapServer()
 	} else if args == "test" {
 		// Run the test
 		TestBootstrapServer()
