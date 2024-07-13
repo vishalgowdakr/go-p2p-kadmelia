@@ -1,11 +1,13 @@
 package client
 
 import (
+	"encoding/base64"
 	"fmt"
 	t "go-p2p/tree"
 	"log"
 	"net"
 	"net/rpc"
+	"os"
 )
 
 var hostname string = "bootstrapserver"
@@ -58,4 +60,28 @@ func GetKNearestNodes(id string) ([]t.NodeAddr, error) {
 		fmt.Println(node.Id)
 	}
 	return nodes, nil
+}
+
+func EncodeNodeID(nodeID string) string {
+	return base64.StdEncoding.EncodeToString([]byte(nodeID))
+}
+
+func WriteToFile(encodedNodeID, filePath string) error {
+	return os.WriteFile(filePath, []byte(encodedNodeID), 0444) // Read-only permissions
+}
+
+func ReadFromFile(filePath string) (string, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func DecodeNodeID(encodedNodeID string) (string, error) {
+	data, err := base64.StdEncoding.DecodeString(encodedNodeID)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }

@@ -7,9 +7,11 @@ build:
 	docker build -f docker/Dockerfile.node -t node .
 	docker run -itd --name bootstrapserver --network p2p bootstrapserver
 	docker run -itd --name node --network p2p node
+	docker exec -it node sh
 
 build_nc:
 	docker build -f docker/Dockerfile.bootstrapserver -t bootstrapserver .
 	docker build -f docker/Dockerfile.node -t node .
 	docker run -itd --name bootstrapserver --network p2p bootstrapserver
 	docker run -itd --name node --network p2p node
+	docker exec -it node sh

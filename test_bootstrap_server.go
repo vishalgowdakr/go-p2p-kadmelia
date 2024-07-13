@@ -34,14 +34,13 @@ func TestBootstrapServer() {
 	for i := 0; i < 10; i++ {
 		node := tree.NodeAddr{
 			Id: generateRandomBinaryString(tree.IdLength),
-			Ip: fmt.Sprintf("node%d", i),
 		}
 
 		nodes, err := client.RegisterNewNode(node)
 		if err != nil {
 			fmt.Fprintf(file, "Error registering node %d: %v\n", i, err)
 		} else {
-			fmt.Fprintf(file, "Registered node: %s - %s\n", node.Id, node.Ip)
+			fmt.Fprintf(file, "Registered node: %s\n", node.Id)
 			registeredNodes = append(registeredNodes, node.Id)
 		}
 		fmt.Fprintf(file, "Response:\n")

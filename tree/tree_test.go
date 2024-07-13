@@ -45,25 +45,21 @@ func TestStrToInt(test *testing.T) {
 func TestTreeInsert(test *testing.T) {
 	nodeAddr1 := t.NodeAddr{
 		Id: "101010",
-		Ip: "192.168.0.1",
 	}
 	node1 := t.NewNode(nodeAddr1)
 
 	nodeAddr2 := t.NodeAddr{
 		Id: "1011010",
-		Ip: "192.168.0.2",
 	}
 	node2 := t.NewNode(nodeAddr2)
 
 	nodeAddr3 := t.NodeAddr{
 		Id: "11111",
-		Ip: "192.168.0.3",
 	}
 	node3 := t.NewNode(nodeAddr3)
 
 	nodeAddr4 := t.NodeAddr{
 		Id: "00000",
-		Ip: "192.168.0.4",
 	}
 	node4 := t.NewNode(nodeAddr4)
 
@@ -112,12 +108,10 @@ func TestTreeInsert(test *testing.T) {
 func TestGetKNearestNodes(test *testing.T) {
 	nodeAddr1 := t.NodeAddr{
 		Id: "101010",
-		Ip: "192.168.0.1",
 	}
 	node1 := t.NewNode(nodeAddr1)
 	nodeAddr2 := t.NodeAddr{
 		Id: "1011010",
-		Ip: "192.168.0.2",
 	}
 	node2 := t.NewNode(nodeAddr2)
 	tree := t.NewTree()
@@ -135,11 +129,9 @@ func TestGetKNearestNodes(test *testing.T) {
 			expected: []t.NodeAddr{
 				{
 					Id: "101010",
-					Ip: "192.168.0.1",
 				},
 				{
 					Id: "1011010",
-					Ip: "192.168.0.2",
 				},
 			},
 		},
@@ -149,11 +141,9 @@ func TestGetKNearestNodes(test *testing.T) {
 			expected: []t.NodeAddr{
 				{
 					Id: "1011010",
-					Ip: "192.168.0.2",
 				},
 				{
 					Id: "101010",
-					Ip: "192.168.0.1",
 				},
 			},
 		},

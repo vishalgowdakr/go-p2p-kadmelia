@@ -3,15 +3,17 @@ package tree
 import (
 	"fmt"
 	"strings"
+
+	peerstore "github.com/libp2p/go-libp2p/core/peer"
 )
 
 const K = 4
 
-const IdLength = 160
+const IdLength = 256
 
 type NodeAddr struct {
-	Id string
-	Ip string
+	Id   string
+	Host *peerstore.AddrInfo
 }
 
 type Node struct {
@@ -101,7 +103,7 @@ func printNode(node *Node, level int, dir int) {
 	}
 	indent := strings.Repeat("  ", level)
 	if node.Addr != nil {
-		fmt.Printf("%s- ID: %s, IP: %s\n", indent, node.Addr.Id, node.Addr.Ip)
+		fmt.Printf("%s- ID: %s\n", indent, node.Addr.Id)
 	} else {
 		fmt.Printf("%s- %d\n", indent, dir)
 	}
