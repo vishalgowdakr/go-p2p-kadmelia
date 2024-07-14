@@ -2,7 +2,7 @@
 
 Implementation roadmap
 
-Bootstrap Server\n
+Bootstrap Server
 	[x] Binary Tree based on ID of node (Tree Insertion, Node searching and K nearest nodes searching)
 	[x] Testing of Tree Insertion, Node searching and K nearest nodes searching
 	[x] RPC endpoints ( RegisterNewNode, GetKNearestNodes )
