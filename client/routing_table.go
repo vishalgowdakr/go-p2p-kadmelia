@@ -1,9 +1,8 @@
-package routing
+package client
 
 import (
 	"container/list"
 	"fmt"
-	"go-p2p/client"
 	"go-p2p/tree"
 	"strconv"
 
@@ -13,7 +12,6 @@ import (
 
 type Bucket struct {
 	ID   string
-	Size int
 	List list.List
 }
 
@@ -78,8 +76,7 @@ func NewRoutingTable(ID string) RoutingTable {
 		bitStr := strconv.Itoa(bit)
 		tempID += bitStr
 		bucket := Bucket{
-			ID:   tempID,
-			Size: 0,
+			ID: tempID,
 		}
 		rt = append(rt, bucket)
 	}
@@ -91,7 +88,6 @@ func ConstructRoutingTable(rt, prt RoutingTable) RoutingTable {
 	for i, bucket := range prt {
 		if bucket.ID == rt[i].ID {
 			rt[i].List = bucket.List
-			rt[i].Size = bucket.Size
 		}
 	}
 	return rt
@@ -114,10 +110,8 @@ func (bkt *Bucket) insertIntoBucket(peer *peerstore.AddrInfo) {
 		if Ping(addrInfo) {
 			bkt.List.PushBack(peer)
 			bkt.List.Remove(frontElement)
-			bkt.Size++
-		} else if bkt.Size < tree.K {
+		} else if bkt.List.Len() < tree.K {
 			bkt.List.PushBack(peer)
-			bkt.Size++
 		}
 	}
 }
@@ -159,9 +153,9 @@ func getPeerInfo(ma multiaddr.Multiaddr) (*peerstore.AddrInfo, error) {
 
 // getNodeID reads and decodes the node ID from a file.
 func getNodeID() (string, error) {
-	encodedID, err := client.ReadFromFile("../client/node_id.txt")
+	encodedID, err := ReadFromFile("../client/node_id.txt")
 	if err != nil {
 		return "", err
 	}
-	return client.DecodeNodeID(encodedID)
+	return DecodeNodeID(encodedID)
 }

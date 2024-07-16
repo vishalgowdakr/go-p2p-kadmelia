@@ -10,19 +10,6 @@ import (
 
 var hostname string = "bootstrapserver"
 
-func lookUp(hostname string) []net.IP {
-	addr, err := net.LookupIP(hostname)
-	if err != nil {
-		fmt.Printf("Failed to lookup ip address for bootstrapserver")
-		fmt.Printf(err.Error())
-		return nil
-	}
-	for _, address := range addr {
-		fmt.Printf(address.String())
-	}
-	return addr
-}
-
 func RegisterNewNode(addr t.NodeAddr) ([]t.NodeAddr, error) {
 	address := lookUp(hostname)
 	if address == nil {
@@ -58,4 +45,17 @@ func GetKNearestNodes(id string) ([]t.NodeAddr, error) {
 		fmt.Println(node.Id)
 	}
 	return nodes, nil
+}
+
+func lookUp(hostname string) []net.IP {
+	addr, err := net.LookupIP(hostname)
+	if err != nil {
+		fmt.Printf("Failed to lookup ip address for bootstrapserver")
+		fmt.Printf(err.Error())
+		return nil
+	}
+	for _, address := range addr {
+		fmt.Printf(address.String())
+	}
+	return addr
 }

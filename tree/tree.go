@@ -37,25 +37,14 @@ func NewNode(addr NodeAddr) *Node {
 	return &Node{Addr: &addr}
 }
 
-func StrToIntArr(str string) []int {
-	intArr := make([]int, len(str))
-	for i, char := range str {
-		intArr[i] = int(char) - int('0')
-	}
-	return intArr
-}
-
-func (tree Tree) SaveToDisk() error {
-	return nil
-}
-
 func (tree *Tree) Insert(node *Node) bool {
+	binaryId := stringToBinary(node.Addr.Id)
 	// Check if tree or node is nil
 	if tree == nil || tree.Head == nil || node == nil {
 		return false
 	}
 
-	id := StrToIntArr(node.Addr.Id)
+	id := strToIntArr(binaryId)
 	if len(id) == 0 {
 		return false
 	}
@@ -138,11 +127,12 @@ func FindArbNode(node *Node) *Node {
 }
 
 func (tree Tree) FindNode(id string) *Node {
+	binaryId := stringToBinary(id)
 	if tree.Head == nil {
 		return nil
 	}
 	curr := tree.Head
-	bits := StrToIntArr(id)
+	bits := strToIntArr(binaryId)
 	for _, bit := range bits {
 		if curr == nil {
 			return nil
@@ -184,4 +174,21 @@ func (tree Tree) GetKNearestNodes(id string) []NodeAddr {
 		}
 	}
 	return knodes
+}
+
+func stringToBinary(s string) string {
+	result := ""
+	for _, c := range s {
+		binary := fmt.Sprintf("%08b", c)
+		result += binary
+	}
+	return result
+}
+
+func strToIntArr(str string) []int {
+	intArr := make([]int, len(str))
+	for i, char := range str {
+		intArr[i] = int(char) - int('0')
+	}
+	return intArr
 }
