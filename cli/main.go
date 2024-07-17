@@ -18,7 +18,6 @@ import (
 type model struct {
 	filepicker   filepicker.Model
 	list         list.Model
-	options      []string
 	choice       string
 	loader       spinner.Model
 	selectedFile string
@@ -46,6 +45,7 @@ var (
 	paginationStyle   = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
 	helpStyle         = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
 	quitTextStyle     = lipgloss.NewStyle().Margin(1, 0, 2, 4)
+	errorStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("red"))
 )
 
 type item string
@@ -126,12 +126,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 		case "tab":
-			i, ok := m.list.SelectedItem().(item)
-			if ok {
-				m.choice = string(i)
-				m.state = fpState
+			if m.state == menuState {
+				i, ok := m.list.SelectedItem().(item)
+				if ok {
+					m.choice = string(i)
+					m.state = fpState
+				}
 			}
 			return m, nil
+		case "enter":
+			if m.state == fpState && m.selectedFile != "" {
+				m.state = loadingState
+				return m, m.loader.Tick
+			}
 		}
 	case clearErrorMsg:
 		m.err = nil
@@ -139,30 +146,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.list.SetWidth(msg.Width)
 		return m, nil
-
 	}
 
-	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
-	m.filepicker, cmd = m.filepicker.Update(msg)
-	m.loader, cmd = m.loader.Update(msg)
+	var lcmd, fcmd, locmd tea.Cmd
+	m.list, lcmd = m.list.Update(msg)
+	m.filepicker, fcmd = m.filepicker.Update(msg)
+	m.loader, locmd = m.loader.Update(msg)
 
-	// Did the user select a file?
 	if didSelect, path := m.filepicker.DidSelectFile(msg); didSelect {
-		// Get the path of the selected file.
 		m.selectedFile = path
+		m.state = successState
+		return m, tea.Quit
 	}
 
-	// Did the user select a disabled file?
-	// This is only necessary to display an error to the user.
 	if didSelect, path := m.filepicker.DidSelectDisabledFile(msg); didSelect {
-		// Let's clear the selectedFile and display an error.
 		m.err = errors.New(path + " is not valid.")
 		m.selectedFile = ""
-		return m, tea.Batch(cmd, clearErrorAfter(2*time.Second))
+		m.state = errorState
+		return m, tea.Batch(fcmd, clearErrorAfter(2*time.Second))
 	}
 
-	return m, cmd
+	return m, tea.Batch(lcmd, fcmd, locmd)
 }
 
 func (m model) View() string {
@@ -172,11 +176,10 @@ func (m model) View() string {
 	switch m.state {
 	case fpState:
 		if m.err != nil {
-			s.WriteString(m.filepicker.Styles.DisabledFile.Render(m.err.Error()))
+			s.WriteString(errorStyle.Render(m.err.Error()))
 		} else if m.selectedFile == "" {
 			s.WriteString("Pick a file:")
 			s.WriteString("\n\n" + m.filepicker.View() + "\n")
-			return s.String()
 		} else {
 			s.WriteString("Selected file: " + m.filepicker.Styles.Selected.Render(m.selectedFile))
 		}
@@ -184,26 +187,22 @@ func (m model) View() string {
 	case menuState:
 		if m.choice != "" {
 			s.WriteString(quitTextStyle.Render(fmt.Sprintf("%s? Sounds good to me.", m.choice)))
-			return s.String()
-		}
-		if m.quitting {
+		} else if m.quitting {
 			s.WriteString(quitTextStyle.Render("Goodbye!"))
-			return s.String()
+		} else {
+			s.WriteString(m.list.View())
 		}
-		s.WriteString(m.list.View())
-		return s.String()
 
 	case loadingState:
-		// Add loading state view here
-		return "Loading..."
+		s.WriteString(fmt.Sprintf("%s Loading...", m.loader.View()))
 
 	case successState:
-		// Add success state view here
-		return "Operation successful!"
+		s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("green")).Render("Operation successful!"))
 
+	case errorState:
+		s.WriteString(errorStyle.Render("An error occurred. Please try again."))
 	}
 	return s.String()
-
 }
 
 func getState(m model) string {
@@ -219,12 +218,16 @@ func getState(m model) string {
 	case errorState:
 		return "Error"
 	}
-	return ""
+	return "Unknown"
 }
 
 func Start() {
 	m := initialModel()
-	tm, _ := tea.NewProgram(&m).Run()
+	tm, err := tea.NewProgram(&m).Run()
+	if err != nil {
+		fmt.Printf("Error running program: %v\n", err)
+		return
+	}
 	mm := tm.(model)
 	fmt.Println("\n  You selected: " + m.filepicker.Styles.Selected.Render(mm.selectedFile) + "\n")
 }
