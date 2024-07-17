@@ -171,18 +171,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	var s strings.Builder
-	s.WriteString("\n  ")
 	s.WriteString("Current state: " + lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Render(getState(m)) + "\n\n")
 	switch m.state {
 	case fpState:
-		if m.err != nil {
-			s.WriteString(errorStyle.Render(m.err.Error()))
-		} else if m.selectedFile == "" {
-			s.WriteString("Pick a file:")
-			s.WriteString("\n\n" + m.filepicker.View() + "\n")
-		} else {
-			s.WriteString("Selected file: " + m.filepicker.Styles.Selected.Render(m.selectedFile))
-		}
+		if m.quitting {
+		return ""
+	}
+	s.WriteString("\n  ")
+	if m.err != nil {
+		s.WriteString(m.filepicker.Styles.DisabledFile.Render(m.err.Error()))
+	} else if m.selectedFile == "" {
+		s.WriteString("Pick a file:")
+	} else {
+		s.WriteString("Selected file: " + m.filepicker.Styles.Selected.Render(m.selectedFile))
+	}
+	s.WriteString("\n\n" + m.filepicker.View() + "\n")
+	return s.String()
 
 	case menuState:
 		if m.choice != "" {
