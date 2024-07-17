@@ -8,12 +8,12 @@ import (
 	"net/rpc"
 	"os"
 
-	"github.com/libp2p/go-libp2p/core/peer"
+	peerstore "github.com/libp2p/go-libp2p/core/peer"
 )
 
 var hostname string = "bootstrapserver"
 
-func DownloadFile(torrentFilePath string, downloadChunk func(string, peer.AddrInfo) ([]byte, error)) error {
+func DownloadFile(torrentFilePath string, downloadChunk func(string, peerstore.AddrInfo) ([]byte, error)) error {
 	torrentFile, err := deserializeTorrentFile(torrentFilePath)
 	if err != nil {
 		return err
@@ -35,7 +35,7 @@ func DownloadFile(torrentFilePath string, downloadChunk func(string, peer.AddrIn
 	return nil
 }
 
-func GetRPC(cid string, peer *peer.AddrInfo) ([]byte, error) {
+func GetRPC(cid string, peer *peerstore.AddrInfo) ([]byte, error) {
 	ip, port := getIpAndPort(*peer)
 	client, err := rpc.DialHTTP("tcp", ip+":"+port)
 	if err != nil {
@@ -49,7 +49,7 @@ func GetRPC(cid string, peer *peer.AddrInfo) ([]byte, error) {
 	return data, err
 }
 
-func StoreRPC(chunk *FileChunk, reply *string, peer *peer.AddrInfo) error {
+func StoreRPC(chunk *FileChunk, reply *string, peer *peerstore.AddrInfo) error {
 	ip, port := getIpAndPort(*peer)
 	client, err := rpc.DialHTTP("tcp", ip+":"+port)
 	if err != nil {
@@ -62,7 +62,7 @@ func StoreRPC(chunk *FileChunk, reply *string, peer *peer.AddrInfo) error {
 	return err
 }
 
-func FindNodeRPC(nodeID *string, peer *peer.AddrInfo, peers *[]peer.AddrInfo) error {
+func FindNodeRPC(nodeID *string, peer *peerstore.AddrInfo, peers *[]peerstore.AddrInfo) error {
 	err := Findnode(*nodeID, peer, peers)
 	if err != nil {
 		log.Fatal(err)
@@ -76,8 +76,8 @@ func FindNodeRPC(nodeID *string, peer *peer.AddrInfo, peers *[]peer.AddrInfo) er
 		}
 		nodeID = (*string)(&alternatePeer.ID)
 		type args struct {
-			peer  *peer.AddrInfo
-			peers *[]peer.AddrInfo
+			peer  *peerstore.AddrInfo
+			peers *[]peerstore.AddrInfo
 		}
 		reply := args{peer: peer, peers: peers}
 		err = client.Call("Client.FindNode", nodeID, &reply)
