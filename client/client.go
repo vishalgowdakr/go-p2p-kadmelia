@@ -2,16 +2,54 @@ package client
 
 import (
 	"fmt"
-	peerstore "github.com/libp2p/go-libp2p/core/peer"
 	t "go-p2p/tree"
 	"log"
 	"net"
 	"net/rpc"
+	"os"
+
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 var hostname string = "bootstrapserver"
 
-func StoreRPC(chunk *FileChunk, reply *string, peer *peerstore.AddrInfo) error {
+func DownloadFile(torrentFilePath string, downloadChunk func(string, peer.AddrInfo) ([]byte, error)) error {
+	torrentFile, err := deserializeTorrentFile(torrentFilePath)
+	if err != nil {
+		return err
+	}
+	file, err := os.Create(torrentFile.filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	for chunkID := range torrentFile.filechunksId {
+		peer := torrentFile.filechunksId[chunkID]
+		data, err := downloadChunk(chunkID, peer)
+		if err != nil {
+			return err
+		}
+		file.Write(data)
+	}
+	return nil
+}
+
+func GetRPC(cid string, peer *peer.AddrInfo) ([]byte, error) {
+	ip, port := getIpAndPort(*peer)
+	client, err := rpc.DialHTTP("tcp", ip+":"+port)
+	if err != nil {
+		log.Fatal("dialing:", err)
+	}
+	data := []byte{}
+	err = client.Call("Client.GetChunk", &cid, &data)
+	if err != nil {
+		log.Fatal("error:", err)
+	}
+	return data, err
+}
+
+func StoreRPC(chunk *FileChunk, reply *string, peer *peer.AddrInfo) error {
 	ip, port := getIpAndPort(*peer)
 	client, err := rpc.DialHTTP("tcp", ip+":"+port)
 	if err != nil {
@@ -24,7 +62,7 @@ func StoreRPC(chunk *FileChunk, reply *string, peer *peerstore.AddrInfo) error {
 	return err
 }
 
-func FindNodeRPC(nodeID *string, peer *peerstore.AddrInfo, peers *[]peerstore.AddrInfo) error {
+func FindNodeRPC(nodeID *string, peer *peer.AddrInfo, peers *[]peer.AddrInfo) error {
 	err := Findnode(*nodeID, peer, peers)
 	if err != nil {
 		log.Fatal(err)
@@ -38,8 +76,8 @@ func FindNodeRPC(nodeID *string, peer *peerstore.AddrInfo, peers *[]peerstore.Ad
 		}
 		nodeID = (*string)(&alternatePeer.ID)
 		type args struct {
-			peer  *peerstore.AddrInfo
-			peers *[]peerstore.AddrInfo
+			peer  *peer.AddrInfo
+			peers *[]peer.AddrInfo
 		}
 		reply := args{peer: peer, peers: peers}
 		err = client.Call("Client.FindNode", nodeID, &reply)

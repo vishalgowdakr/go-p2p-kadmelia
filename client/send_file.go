@@ -2,6 +2,7 @@ package client
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -54,16 +55,16 @@ func sendChunk(filechunk FileChunk) (peerstore.AddrInfo, error) {
 	return peerstore.AddrInfo{}, fmt.Errorf("No peers available to store chunk")
 }
 
-func SendFile(filepath string, sendChunk func(FileChunk) (peerstore.AddrInfo, error)) (TorrentFile, error) {
+func SendFile(filepath string, sendChunk func(FileChunk) (peerstore.AddrInfo, error)) error {
 	file, err := os.Open(filepath)
 	if err != nil {
-		return TorrentFile{}, err
+		return err
 	}
 	defer file.Close()
 
 	fileInfo, err := file.Stat()
 	if err != nil {
-		return TorrentFile{}, err
+		return err
 	}
 
 	filename := strings.Split(filepath, "/")[len(strings.Split(filepath, "/"))-1]
@@ -86,13 +87,13 @@ func SendFile(filepath string, sendChunk func(FileChunk) (peerstore.AddrInfo, er
 			if err == io.EOF {
 				break
 			}
-			return TorrentFile{}, err
+			return err
 		}
 
 		chunk := buffer[:n]
 		cid, err := getContentId(chunk)
 		if err != nil {
-			return TorrentFile{}, err
+			return err
 		}
 
 		fileChunk := FileChunk{
@@ -104,7 +105,7 @@ func SendFile(filepath string, sendChunk func(FileChunk) (peerstore.AddrInfo, er
 		fileChunksId = append(fileChunksId, cid)
 		owner, err := sendChunk(fileChunk)
 		if err != nil {
-			return TorrentFile{}, err
+			return err
 		}
 		torrentFile.filechunksId[cid] = owner
 
@@ -113,7 +114,38 @@ func SendFile(filepath string, sendChunk func(FileChunk) (peerstore.AddrInfo, er
 		// Log or update progress here
 		// log.Printf("Progress: %.2f%%", progress)
 	}
+	//serialize torrent file and save it
+	serializeTorrentFile(torrentFile)
 
+	return nil
+}
+
+func serializeTorrentFile(torrentFile TorrentFile) error {
+	// use marshalling to serialize the torrent file
+	serializedData, err := json.Marshal(torrentFile)
+	if err != nil {
+		return fmt.Errorf("error serializing torrent file: %w", err)
+	}
+	//save the serialized data to a file
+	err = os.WriteFile(torrentFile.filename+".torrent", serializedData, 0644)
+	if err != nil {
+		return fmt.Errorf("error saving torrent file: %w", err)
+	}
+	return nil
+}
+
+func deserializeTorrentFile(filepath string) (TorrentFile, error) {
+	// read the serialized data from the file
+	serializedData, err := os.ReadFile(filepath)
+	if err != nil {
+		return TorrentFile{}, fmt.Errorf("error reading torrent file: %w", err)
+	}
+	// use unmarshalling to deserialize the torrent file
+	var torrentFile TorrentFile
+	err = json.Unmarshal(serializedData, &torrentFile)
+	if err != nil {
+		return TorrentFile{}, fmt.Errorf("error deserializing torrent file: %w", err)
+	}
 	return torrentFile, nil
 }
 

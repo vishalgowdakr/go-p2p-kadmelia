@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"time"
 
 	peerstore "github.com/libp2p/go-libp2p/core/peer"
@@ -20,6 +21,27 @@ func New() *Client {
 }
 
 // TODO:
+type getargs struct {
+	peer *peerstore.AddrInfo
+	data *[]byte
+}
+
+func GetChunk(chunkID *string, data *[]byte) error {
+	store, err := NewChunkStore("file_chunks.db")
+	if err != nil {
+		fmt.Println("Error creating store:", err)
+		return nil
+	}
+	defer store.Close()
+	retrievedChunk, err := store.Retrieve(*chunkID)
+	if err != nil {
+		fmt.Println("Error retrieving chunk:", err)
+		return err
+	}
+	*data = retrievedChunk.data
+	return nil
+}
+
 type args struct {
 	peer  *peerstore.AddrInfo
 	peers *[]peerstore.AddrInfo

@@ -63,6 +63,7 @@ func TestBootstrapServer() {
 	}
 
 	testnode := "1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
+
 	fmt.Fprintf(file, "\nGetting K nearest nodes for ID: %s\n", testnode)
 	nodes, err := client.GetKNearestNodesRPC(testnode)
 	if err != nil {

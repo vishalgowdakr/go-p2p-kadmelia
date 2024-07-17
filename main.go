@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"go-p2p/bootstrapserver"
+	"go-p2p/cli"
 	"os"
 )
 
@@ -16,6 +17,6 @@ func main() {
 		// Run the test
 		TestBootstrapServer()
 	} else {
-		fmt.Println("Invalid argument")
+		cli.Start()
 	}
 }
