@@ -36,7 +36,7 @@ func TestBootstrapServer() {
 			Id: generateRandomBinaryString(tree.IdLength),
 		}
 
-		nodes, err := client.RegisterNewNode(node)
+		nodes, err := client.RegisterNewNodeRPC(node)
 		if err != nil {
 			fmt.Fprintf(file, "Error registering node %d: %v\n", i, err)
 		} else {
@@ -52,7 +52,7 @@ func TestBootstrapServer() {
 	// Get K nearest nodes for 5 random node IDs
 	for _, n := range registeredNodes {
 		fmt.Fprintf(file, "\nGetting K nearest nodes for ID: %s\n", n)
-		nodes, err := client.GetKNearestNodes(n)
+		nodes, err := client.GetKNearestNodesRPC(n)
 		if err != nil {
 			fmt.Fprintf(file, "Error getting K nearest nodes: %v\n", err)
 		}
@@ -64,7 +64,7 @@ func TestBootstrapServer() {
 
 	testnode := "1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
 	fmt.Fprintf(file, "\nGetting K nearest nodes for ID: %s\n", testnode)
-	nodes, err := client.GetKNearestNodes(testnode)
+	nodes, err := client.GetKNearestNodesRPC(testnode)
 	if err != nil {
 		fmt.Fprintf(file, "Error getting K nearest nodes: %v\n", err)
 	}

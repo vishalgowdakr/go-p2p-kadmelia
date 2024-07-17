@@ -1,0 +1,168 @@
+version: '3'
+
+services:
+  bootstrap:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: bootstrapserver
+    ports:
+      - "2233:2233"
+
+  cli1:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: cli
+    depends_on:
+      - bootstrap
+
+  cli2:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: cli
+    depends_on:
+      - bootstrap
+
+  
+  node1:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: node
+    depends_on:
+      - bootstrap
+  node2:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: node
+    depends_on:
+      - bootstrap
+  node3:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: node
+    depends_on:
+      - bootstrap
+  node4:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: node
+    depends_on:
+      - bootstrap
+  node5:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: node
+    depends_on:
+      - bootstrap
+  node6:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: node
+    depends_on:
+      - bootstrap
+  node7:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: node
+    depends_on:
+      - bootstrap
+  node8:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: node
+    depends_on:
+      - bootstrap
+  node9:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: node
+    depends_on:
+      - bootstrap
+  node10:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: node
+    depends_on:
+      - bootstrap
+  node11:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: node
+    depends_on:
+      - bootstrap
+  node12:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: node
+    depends_on:
+      - bootstrap
+  node13:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: node
+    depends_on:
+      - bootstrap
+  node14:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: node
+    depends_on:
+      - bootstrap
+  node15:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: node
+    depends_on:
+      - bootstrap
+  node16:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: node
+    depends_on:
+      - bootstrap
+  node17:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: node
+    depends_on:
+      - bootstrap
+  node18:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: node
+    depends_on:
+      - bootstrap
+  node19:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: node
+    depends_on:
+      - bootstrap
+  node20:
+    build:
+      context: .
+      args:
+        P2P_CONFIG: node
+    depends_on:
+      - bootstrap

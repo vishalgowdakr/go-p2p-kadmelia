@@ -99,10 +99,27 @@ func Ping(peer *peerstore.AddrInfo) bool {
 	return false
 }
 
+// function to check if the bucket already contains the peer
+func (bkt *Bucket) contains(peer *peerstore.AddrInfo) bool {
+	for e := bkt.List.Front(); e != nil; e = e.Next() {
+		addrInfo, ok := e.Value.(*peerstore.AddrInfo)
+		if !ok {
+			return false
+		}
+		if addrInfo.ID == peer.ID {
+			return true
+		}
+	}
+	return false
+}
+
 // InsertIntoBucket inserts a peer into the bucket.
 func (bkt *Bucket) insertIntoBucket(peer *peerstore.AddrInfo) {
 	frontElement := bkt.List.Front()
 	if frontElement != nil {
+		if bkt.contains(peer) {
+			return
+		}
 		addrInfo, ok := frontElement.Value.(*peerstore.AddrInfo)
 		if !ok {
 			return

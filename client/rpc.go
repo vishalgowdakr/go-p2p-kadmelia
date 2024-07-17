@@ -1,7 +1,6 @@
 package client
 
 import (
-	"context"
 	"time"
 
 	peerstore "github.com/libp2p/go-libp2p/core/peer"
@@ -21,10 +20,20 @@ func New() *Client {
 }
 
 // TODO:
-func (client *Client) FindNode(ctx *context.Context, nodeID *string) (peerstore.AddrInfo, []peerstore.AddrInfo, error)
+type args struct {
+	peer  *peerstore.AddrInfo
+	peers *[]peerstore.AddrInfo
+}
 
-func (client *Client) Store(chunk []byte) (peerstore.AddrInfo, error)
+func (client *Client) FindNode(nodeID *string, a *args) error {
+	err := Findnode(*nodeID, a.peer, a.peers)
+	return err
+}
 
-func (client *Client) FindChunk(chunkID *string) ([]byte, error)
-
-func (client *Client) Ping(ctx *context.Context, peer *peerstore.AddrInfo) error
+func (client *Client) Store(chunk *FileChunk, reply *string) error {
+	err := Store(chunk, reply)
+	if err != nil {
+		return err
+	}
+	return nil
+}

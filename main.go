@@ -15,5 +15,7 @@ func main() {
 	} else if args == "test" {
 		// Run the test
 		TestBootstrapServer()
+	} else {
+		fmt.Println("Invalid argument")
 	}
 }

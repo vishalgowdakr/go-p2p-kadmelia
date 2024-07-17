@@ -1,4 +1,4 @@
-package file
+package client
 
 import (
 	"database/sql"
@@ -10,6 +10,8 @@ type ChunkStore struct {
 	db *sql.DB
 }
 
+// Create a new sqlite database to store file chunks
+// The database will be created at the specified path
 func NewChunkStore(dbPath string) (*ChunkStore, error) {
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
@@ -31,12 +33,27 @@ func NewChunkStore(dbPath string) (*ChunkStore, error) {
 	return &ChunkStore{db: db}, nil
 }
 
-func (cs *ChunkStore) Store(chunk FileChunk) error {
+func (cs *ChunkStore) StoreChunk(chunk *FileChunk) error {
 	_, err := cs.db.Exec(
 		"INSERT INTO file_chunks (id, index_num, data) VALUES (?, ?, ?)",
 		chunk.id, chunk.index, chunk.data,
 	)
 	return err
+}
+
+func Store(chunk *FileChunk, reply *string) error {
+	// fmt.Println("Storing chunk:", chunk.id)
+	store, err := NewChunkStore("file_chunks.db")
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
+	err = store.StoreChunk(chunk)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (cs *ChunkStore) Retrieve(id string) (FileChunk, error) {
@@ -110,4 +127,3 @@ func (cs *ChunkStore) Close() error {
 
     fmt.Printf("Retrieved %d chunks\n", len(chunks))
 } */
-

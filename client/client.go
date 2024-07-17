@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	peerstore "github.com/libp2p/go-libp2p/core/peer"
 	t "go-p2p/tree"
 	"log"
 	"net"
@@ -10,7 +11,43 @@ import (
 
 var hostname string = "bootstrapserver"
 
-func RegisterNewNode(addr t.NodeAddr) ([]t.NodeAddr, error) {
+func StoreRPC(chunk *FileChunk, reply *string, peer *peerstore.AddrInfo) error {
+	ip, port := getIpAndPort(*peer)
+	client, err := rpc.DialHTTP("tcp", ip+":"+port)
+	if err != nil {
+		log.Fatal("dialing:", err)
+	}
+	err = client.Call("Client.Store", chunk, reply)
+	if err != nil {
+		log.Fatal("error:", err)
+	}
+	return err
+}
+
+func FindNodeRPC(nodeID *string, peer *peerstore.AddrInfo, peers *[]peerstore.AddrInfo) error {
+	err := Findnode(*nodeID, peer, peers)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for peer == nil {
+		alternatePeer := (*peers)[0]
+		ip, port := getIpAndPort(alternatePeer)
+		client, err := rpc.DialHTTP("tcp", ip+":"+port)
+		if err != nil {
+			log.Fatal("dialing:", err)
+		}
+		nodeID = (*string)(&alternatePeer.ID)
+		type args struct {
+			peer  *peerstore.AddrInfo
+			peers *[]peerstore.AddrInfo
+		}
+		reply := args{peer: peer, peers: peers}
+		err = client.Call("Client.FindNode", nodeID, &reply)
+	}
+	return err
+}
+
+func RegisterNewNodeRPC(addr t.NodeAddr) ([]t.NodeAddr, error) {
 	address := lookUp(hostname)
 	if address == nil {
 		panic("Lookup failed")
@@ -27,7 +64,7 @@ func RegisterNewNode(addr t.NodeAddr) ([]t.NodeAddr, error) {
 	return nodes, nil
 }
 
-func GetKNearestNodes(id string) ([]t.NodeAddr, error) {
+func GetKNearestNodesRPC(id string) ([]t.NodeAddr, error) {
 	address := lookUp(hostname)
 	if address == nil {
 		panic("Lookup failed")
