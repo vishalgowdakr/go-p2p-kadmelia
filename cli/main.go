@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/filepicker"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -18,28 +19,53 @@ import (
 type model struct {
 	filepicker   filepicker.Model
 	list         list.Model
-	choice       string
 	loader       spinner.Model
+	viewport     viewport.Model
 	selectedFile string
+	choice       string
 	quitting     bool
 	err          error
+	content      string
+	ready        bool
 	state        int
+	substate     int
 }
 
 const (
 	menuState = iota
 	fpState
 	loadingState
-	successState
 	errorState
+	summaryState
+)
+
+const (
+	uploadState = iota
+	downloadState
 )
 
 type clearErrorMsg struct{}
 
 const listHeight = 14
 
+const useHighPerformanceRenderer = false
+
 var (
-	titleStyle        = lipgloss.NewStyle().MarginLeft(2)
+	titleStyle = func() lipgloss.Style {
+		b := lipgloss.RoundedBorder()
+		b.Right = "├"
+		return lipgloss.NewStyle().BorderStyle(b).Padding(0, 1)
+	}()
+
+	infoStyle = func() lipgloss.Style {
+		b := lipgloss.RoundedBorder()
+		b.Left = "┤"
+		return titleStyle.BorderStyle(b)
+	}()
+)
+
+var (
+	titleStyle_l      = lipgloss.NewStyle().MarginLeft(2)
 	itemStyle         = lipgloss.NewStyle().PaddingLeft(4)
 	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
 	paginationStyle   = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
@@ -90,10 +116,10 @@ func initialModel() model {
 	const defaultWidth = 20
 
 	l := list.New(items, itemDelegate{}, defaultWidth, listHeight)
-	l.Title = "Welcome to Peer to Peer File Sharing!"
+	l.Title = fmt.Sprintf("Welcome to Peer to Peer File Sharing!")
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
-	l.Styles.Title = titleStyle
+	l.Styles.Title = titleStyle_l
 	l.Styles.PaginationStyle = paginationStyle
 	l.Styles.HelpStyle = helpStyle
 
@@ -109,6 +135,7 @@ func initialModel() model {
 		filepicker: fp,
 		loader:     s,
 		state:      menuState,
+		substate:   uploadState,
 	}
 }
 
@@ -126,21 +153,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			m.quitting = true
 			return m, tea.Quit
-		case "tab":
+		case "enter":
 			if m.state == menuState {
 				i, ok := m.list.SelectedItem().(item)
 				if ok {
 					m.choice = string(i)
+					if m.choice == "Download a file" {
+						m.substate = downloadState
+					}
 					m.state = fpState
 				}
-			}
-			return m, nil
-		case "enter":
-			if m.state == fpState && m.selectedFile != "" {
+				return m, nil
+			} else if m.state == fpState && m.selectedFile != "" {
 				m.state = loadingState
 				return m, m.loader.Tick
 			}
 		case "esc":
+			var cmd tea.Cmd
+			m.filepicker, cmd = m.filepicker.Update(msg)
+			return m, cmd
 
 		}
 	case clearErrorMsg:
@@ -158,8 +189,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	if didSelect, path := m.filepicker.DidSelectFile(msg); didSelect {
 		m.selectedFile = path
-		m.state = successState
-		return m, tea.Quit
+		m.state = loadingState
+		return m, nil
 	}
 
 	if didSelect, path := m.filepicker.DidSelectDisabledFile(msg); didSelect {
@@ -184,7 +215,11 @@ func (m model) View() string {
 		if m.err != nil {
 			s.WriteString(m.filepicker.Styles.DisabledFile.Render(m.err.Error()))
 		} else if m.selectedFile == "" {
-			s.WriteString("Pick a file:")
+			if m.substate == uploadState {
+				s.WriteString("Pick a file to upload:")
+			} else {
+				s.WriteString("Pick a '.torrent' file to download:")
+			}
 		} else {
 			s.WriteString("Selected file: " + m.filepicker.Styles.Selected.Render(m.selectedFile))
 		}
@@ -199,11 +234,17 @@ func (m model) View() string {
 		} else {
 			s.WriteString(m.list.View())
 		}
+		s.WriteString("Your ID is: " + lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Render("1234567890") + "\n")
 
 	case loadingState:
-		s.WriteString(fmt.Sprintf("%s Loading...", m.loader.View()))
+		if m.substate == uploadState {
 
-	case successState:
+			s.WriteString(fmt.Sprintf("%s Please wait while your file is being uploading to our network...", m.loader.View()))
+		} else {
+			s.WriteString(fmt.Sprintf("%s Please wait while your file is being downloaded from our network", m.loader.View()))
+		}
+
+	case summaryState:
 		s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("green")).Render("Operation successful!"))
 
 	case errorState:
@@ -220,8 +261,8 @@ func getState(m model) string {
 		return "Menu"
 	case loadingState:
 		return "Loading"
-	case successState:
-		return "Success"
+	case summaryState:
+		return "Summary"
 	case errorState:
 		return "Error"
 	}
@@ -230,11 +271,11 @@ func getState(m model) string {
 
 func Start() {
 	m := initialModel()
-	tm, err := tea.NewProgram(&m, tea.WithAltScreen()).Run()
+	_, err := tea.NewProgram(&m, tea.WithAltScreen()).Run()
 	if err != nil {
 		fmt.Printf("Error running program: %v\n", err)
 		return
 	}
-	mm := tm.(model)
-	fmt.Println("\n  You selected: " + m.filepicker.Styles.Selected.Render(mm.selectedFile) + "\n")
+	/* mm := tm.(model)
+	fmt.Println("\n  You selected: " + m.filepicker.Styles.Selected.Render(mm.selectedFile) + "\n") */
 }
