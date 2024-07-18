@@ -31,6 +31,11 @@ type model struct {
 	substate     int
 }
 
+type workCompleteMsg struct {
+	success bool
+	err     error
+}
+
 const (
 	menuState = iota
 	fpState
@@ -73,6 +78,20 @@ var (
 	quitTextStyle     = lipgloss.NewStyle().Margin(1, 0, 2, 4)
 	errorStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("red"))
 )
+
+func performWork(substate int) tea.Cmd {
+	return func() tea.Msg {
+		// Simulate some work (replace this with actual upload/download logic)
+		time.Sleep(3 * time.Second)
+
+		// For demonstration, let's say upload always succeeds and download might fail
+		if substate == uploadState {
+			return workCompleteMsg{success: true, err: nil}
+		} else {
+			return workCompleteMsg{success: false, err: errors.New("Download failed")}
+		}
+	}
+}
 
 type item string
 
@@ -166,7 +185,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			} else if m.state == fpState && m.selectedFile != "" {
 				m.state = loadingState
-				return m, m.loader.Tick
+				return m, tea.Batch(
+					m.loader.Tick,
+					performWork(m.substate),
+				)
 			}
 		case "esc":
 			var cmd tea.Cmd
@@ -180,12 +202,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.list.SetWidth(msg.Width)
 		return m, nil
+
+	case workCompleteMsg:
+		if msg.success {
+			m.state = summaryState
+		} else {
+			m.state = errorState
+			m.err = msg.err
+		}
+		return m, nil
 	}
 
-	var lcmd, fcmd, locmd tea.Cmd
+	var lcmd, fcmd, locmd, viewportcmd tea.Cmd
 	m.list, lcmd = m.list.Update(msg)
 	m.filepicker, fcmd = m.filepicker.Update(msg)
 	m.loader, locmd = m.loader.Update(msg)
+	m.viewport, viewportcmd = m.viewport.Update(msg)
 
 	if didSelect, path := m.filepicker.DidSelectFile(msg); didSelect {
 		m.selectedFile = path
@@ -200,7 +232,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(fcmd, clearErrorAfter(2*time.Second))
 	}
 
-	return m, tea.Batch(lcmd, fcmd, locmd)
+	return m, tea.Batch(lcmd, fcmd, locmd, viewportcmd)
 }
 
 func (m model) View() string {
