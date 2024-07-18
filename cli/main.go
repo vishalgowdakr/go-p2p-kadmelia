@@ -176,10 +176,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			} else if m.state == fpState && m.selectedFile != "" {
 				m.state = loadingState
-				return m, tea.Batch(
-					m.loader.Tick,
-					performWork(),
-				)
+				return m, m.loader.Tick
 			}
 		case "esc":
 			var cmd tea.Cmd
@@ -204,6 +201,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.filepicker, fcmd = m.filepicker.Update(msg)
 	m.loader, locmd = m.loader.Update(msg)
 	m.viewport, viewportcmd = m.viewport.Update(msg)
+	if m.state == loadingState {
+		return m, 
+	}
 
 	if didSelect, path := m.filepicker.DidSelectFile(msg); didSelect {
 		m.selectedFile = path
