@@ -31,10 +31,7 @@ type model struct {
 	substate     int
 }
 
-type workCompleteMsg struct {
-	success bool
-	err     error
-}
+type workCompleteMsg struct{}
 
 const (
 	menuState = iota
@@ -79,17 +76,10 @@ var (
 	errorStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("red"))
 )
 
-func performWork(substate int) tea.Cmd {
+func performWork() tea.Cmd {
 	return func() tea.Msg {
-		// Simulate some work (replace this with actual upload/download logic)
 		time.Sleep(3 * time.Second)
-
-		// For demonstration, let's say upload always succeeds and download might fail
-		if substate == uploadState {
-			return workCompleteMsg{success: true, err: nil}
-		} else {
-			return workCompleteMsg{success: false, err: errors.New("Download failed")}
-		}
+		return workCompleteMsg{}
 	}
 }
 
@@ -149,10 +139,12 @@ func initialModel() model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+	v := viewport.New(defaultWidth, listHeight)
 	return model{
 		list:       l,
 		filepicker: fp,
 		loader:     s,
+		viewport:   v,
 		state:      menuState,
 		substate:   uploadState,
 	}
@@ -187,7 +179,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state = loadingState
 				return m, tea.Batch(
 					m.loader.Tick,
-					performWork(m.substate),
+					performWork(),
 				)
 			}
 		case "esc":
@@ -204,12 +196,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case workCompleteMsg:
-		if msg.success {
-			m.state = summaryState
-		} else {
-			m.state = errorState
-			m.err = msg.err
-		}
+		m.state = summaryState
 		return m, nil
 	}
 
