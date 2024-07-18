@@ -77,10 +77,9 @@ var (
 )
 
 func performWork() tea.Cmd {
-	return func() tea.Msg {
-		time.Sleep(3 * time.Second)
+	return tea.Tick(3*time.Second, func(time.Time) tea.Msg {
 		return workCompleteMsg{}
-	}
+	})
 }
 
 type item string
@@ -257,14 +256,17 @@ func (m model) View() string {
 
 	case loadingState:
 		if m.substate == uploadState {
-
-			s.WriteString(fmt.Sprintf("%s Please wait while your file is being uploading to our network...", m.loader.View()))
+			s.WriteString(fmt.Sprintf("%s Please wait while your file is being uploaded to our network...", m.loader.View()))
 		} else {
 			s.WriteString(fmt.Sprintf("%s Please wait while your file is being downloaded from our network", m.loader.View()))
 		}
 
 	case summaryState:
-		s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("green")).Render("Operation successful!"))
+		if m.substate == uploadState {
+			s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("green")).Render("File uploaded successfully!"))
+		} else {
+			s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("green")).Render("File downloaded successfully!"))
+		}
 
 	case errorState:
 		s.WriteString(errorStyle.Render("An error occurred. Please try again."))
