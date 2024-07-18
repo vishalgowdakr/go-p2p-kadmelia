@@ -98,6 +98,7 @@ func initialModel() model {
 	l.Styles.HelpStyle = helpStyle
 
 	fp := filepicker.New()
+	fp.Height = 10
 	fp.AllowedTypes = []string{".mod", ".sum", ".go", ".txt", ".md", ".pdf"}
 	fp.CurrentDirectory, _ = os.Getwd()
 	s := spinner.New()
@@ -139,6 +140,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state = loadingState
 				return m, m.loader.Tick
 			}
+		case "esc":
+
 		}
 	case clearErrorMsg:
 		m.err = nil
@@ -175,18 +178,18 @@ func (m model) View() string {
 	switch m.state {
 	case fpState:
 		if m.quitting {
-		return ""
-	}
-	s.WriteString("\n  ")
-	if m.err != nil {
-		s.WriteString(m.filepicker.Styles.DisabledFile.Render(m.err.Error()))
-	} else if m.selectedFile == "" {
-		s.WriteString("Pick a file:")
-	} else {
-		s.WriteString("Selected file: " + m.filepicker.Styles.Selected.Render(m.selectedFile))
-	}
-	s.WriteString("\n\n" + m.filepicker.View() + "\n")
-	return s.String()
+			return ""
+		}
+		s.WriteString("\n  ")
+		if m.err != nil {
+			s.WriteString(m.filepicker.Styles.DisabledFile.Render(m.err.Error()))
+		} else if m.selectedFile == "" {
+			s.WriteString("Pick a file:")
+		} else {
+			s.WriteString("Selected file: " + m.filepicker.Styles.Selected.Render(m.selectedFile))
+		}
+		s.WriteString("\n\n" + m.filepicker.View() + "\n")
+		return s.String()
 
 	case menuState:
 		if m.choice != "" {
@@ -227,7 +230,7 @@ func getState(m model) string {
 
 func Start() {
 	m := initialModel()
-	tm, err := tea.NewProgram(&m).Run()
+	tm, err := tea.NewProgram(&m, tea.WithAltScreen()).Run()
 	if err != nil {
 		fmt.Printf("Error running program: %v\n", err)
 		return
