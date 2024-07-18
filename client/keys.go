@@ -10,7 +10,7 @@ import (
 
 const keyFile = "node_key.b64"
 
-func loadOrCreatePrivateKey() (crypto.PrivKey, error) {
+func LoadOrCreatePrivateKey() (crypto.PrivKey, error) {
 	if _, err := os.Stat(keyFile); os.IsNotExist(err) {
 		// Create new key
 		priv, _, err := crypto.GenerateKeyPairWithReader(crypto.RSA, 2048, rand.Reader)

@@ -18,7 +18,7 @@ RUN go build
 
 
 # set environment variable
-ENV P2P_CONFIG=node
+ENV P2P_CONFIG=cli
 
 # Command to run the executable
-CMD ["./go-p2p"]
+#CMD ["./go-p2p"]

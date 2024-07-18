@@ -30,7 +30,7 @@ type FileChunk struct {
 
 const chunkSize = 1 * 1024 * 1024 // 1 MB chunks
 
-func sendChunk(filechunk FileChunk) (peerstore.AddrInfo, error) {
+func SendChunk(filechunk FileChunk) (peerstore.AddrInfo, error) {
 	peers, err := GetKNearestNodesRPC(filechunk.id)
 	if err != nil {
 		return peerstore.AddrInfo{}, err
@@ -127,7 +127,7 @@ func serializeTorrentFile(torrentFile TorrentFile) error {
 		return fmt.Errorf("error serializing torrent file: %w", err)
 	}
 	//save the serialized data to a file
-	err = os.WriteFile(torrentFile.filename+".torrent", serializedData, 0644)
+	err = os.WriteFile("torrent/"+torrentFile.filename+".torrent", serializedData, 0644)
 	if err != nil {
 		return fmt.Errorf("error saving torrent file: %w", err)
 	}

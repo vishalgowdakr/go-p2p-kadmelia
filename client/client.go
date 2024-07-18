@@ -13,12 +13,26 @@ import (
 
 var hostname string = "bootstrapserver"
 
-func DownloadFile(torrentFilePath string, downloadChunk func(string, peerstore.AddrInfo) ([]byte, error)) error {
+func GetRoutingTable(peer *peerstore.AddrInfo) {
+	ip, port := getIpAndPort(*peer)
+	client, err := rpc.DialHTTP("tcp", ip+":"+port)
+	if err != nil {
+		log.Fatal("dialing:", err)
+	}
+	_, rt := GetMyNodeID()
+	err = client.Call("Client.GetRoutingTable", &myAddrInfo, &rt)
+	if err != nil {
+		log.Fatal("error:", err)
+	}
+	UpdateRoutingTable(rt)
+}
+
+func DownloadFile(torrentFilePath string, downloadChunk func(string, *peerstore.AddrInfo) ([]byte, error)) error {
 	torrentFile, err := deserializeTorrentFile(torrentFilePath)
 	if err != nil {
 		return err
 	}
-	file, err := os.Create(torrentFile.filename)
+	file, err := os.Create("downloads/" + torrentFile.filename)
 	if err != nil {
 		return err
 	}
@@ -26,7 +40,7 @@ func DownloadFile(torrentFilePath string, downloadChunk func(string, peerstore.A
 
 	for chunkID := range torrentFile.filechunksId {
 		peer := torrentFile.filechunksId[chunkID]
-		data, err := downloadChunk(chunkID, peer)
+		data, err := downloadChunk(chunkID, &peer)
 		if err != nil {
 			return err
 		}
@@ -86,11 +100,7 @@ func FindNodeRPC(nodeID *string, peer *peerstore.AddrInfo, peers *[]peerstore.Ad
 }
 
 func RegisterNewNodeRPC(addr t.NodeAddr) ([]t.NodeAddr, error) {
-	address := lookUp(hostname)
-	if address == nil {
-		panic("Lookup failed")
-	}
-	client, err := rpc.DialHTTP("tcp", address[0].String()+":2233")
+	client, err := rpc.DialHTTP("tcp", "localhost"+":2233")
 	if err != nil {
 		log.Fatal("dialing:", err)
 	}
@@ -103,11 +113,7 @@ func RegisterNewNodeRPC(addr t.NodeAddr) ([]t.NodeAddr, error) {
 }
 
 func GetKNearestNodesRPC(id string) ([]t.NodeAddr, error) {
-	address := lookUp(hostname)
-	if address == nil {
-		panic("Lookup failed")
-	}
-	client, err := rpc.DialHTTP("tcp", address[0].String()+":2233")
+	client, err := rpc.DialHTTP("tcp", "localhost"+":2233")
 	if err != nil {
 		log.Fatal("dialing:", err)
 	}
@@ -120,17 +126,4 @@ func GetKNearestNodesRPC(id string) ([]t.NodeAddr, error) {
 		fmt.Println(node.Id)
 	}
 	return nodes, nil
-}
-
-func lookUp(hostname string) []net.IP {
-	addr, err := net.LookupIP(hostname)
-	if err != nil {
-		fmt.Printf("Failed to lookup ip address for bootstrapserver")
-		fmt.Printf(err.Error())
-		return nil
-	}
-	for _, address := range addr {
-		fmt.Printf(address.String())
-	}
-	return addr
 }

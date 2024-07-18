@@ -7,7 +7,7 @@ import (
 	peerstore "github.com/libp2p/go-libp2p/core/peer"
 )
 
-const K = 4
+const K = 2
 
 const IdLength = 256
 

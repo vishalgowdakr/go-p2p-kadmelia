@@ -41,7 +41,7 @@ func (cs *ChunkStore) StoreChunk(chunk *FileChunk) error {
 	return err
 }
 
-func Store(chunk *FileChunk, reply *string) error {
+func Store(chunk *FileChunk) error {
 	// fmt.Println("Storing chunk:", chunk.id)
 	store, err := NewChunkStore("file_chunks.db")
 	if err != nil {

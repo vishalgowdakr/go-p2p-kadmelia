@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"go-p2p/client"
 	"io"
 	"os"
 	"strings"
@@ -76,10 +77,32 @@ var (
 	errorStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("red"))
 )
 
-func performWork() tea.Cmd {
-	return tea.Tick(3*time.Second, func(time.Time) tea.Msg {
+func uploadFile(file string) {
+	// Upload file to the network
+	err := client.SendFile(file, client.SendChunk)
+	if err != nil {
+		fmt.Println("Error uploading file:", err)
+	}
+}
+
+func downloadFile(file string) {
+	// Download file from the network
+	err := client.DownloadFile(file, client.GetRPC)
+	if err != nil {
+		fmt.Println("Error downloading file:", err)
+	}
+}
+func performWork(m model) tea.Cmd {
+	if m.state == loadingState {
+		if m.substate == uploadState {
+			uploadFile(m.selectedFile)
+		} else {
+			downloadFile(m.selectedFile)
+		}
+	}
+	return func() tea.Msg {
 		return workCompleteMsg{}
-	})
+	}
 }
 
 type item string
@@ -149,6 +172,8 @@ func initialModel() model {
 	}
 }
 
+// get model
+
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		m.filepicker.Init(),
@@ -176,13 +201,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			} else if m.state == fpState && m.selectedFile != "" {
 				m.state = loadingState
-				return m, m.loader.Tick
+				return m, tea.Batch(
+					m.loader.Tick,
+					performWork(m),
+				)
 			}
 		case "esc":
 			var cmd tea.Cmd
 			m.filepicker, cmd = m.filepicker.Update(msg)
 			return m, cmd
-
 		}
 	case clearErrorMsg:
 		m.err = nil
@@ -201,14 +228,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.filepicker, fcmd = m.filepicker.Update(msg)
 	m.loader, locmd = m.loader.Update(msg)
 	m.viewport, viewportcmd = m.viewport.Update(msg)
+
 	if m.state == loadingState {
-		return m, 
+		return m, m.loader.Tick
 	}
 
 	if didSelect, path := m.filepicker.DidSelectFile(msg); didSelect {
 		m.selectedFile = path
 		m.state = loadingState
-		return m, nil
+		return m, tea.Batch(
+			m.loader.Tick,
+			performWork(m),
+		)
 	}
 
 	if didSelect, path := m.filepicker.DidSelectDisabledFile(msg); didSelect {
@@ -252,7 +283,8 @@ func (m model) View() string {
 		} else {
 			s.WriteString(m.list.View())
 		}
-		s.WriteString("Your ID is: " + lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Render("1234567890") + "\n")
+		id, _ := client.GetMyNodeID()
+		s.WriteString("Your ID is: " + lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Render(id) + "\n")
 
 	case loadingState:
 		if m.substate == uploadState {
