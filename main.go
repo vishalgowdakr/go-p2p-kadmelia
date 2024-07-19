@@ -31,9 +31,9 @@ func main() {
 		// Start the RPC server
 		fmt.Print("Bootstrap server listening on port : 2233")
 		bootstrapserver.StartBootstrapServer()
-	} else if args == "node" {
-		initialise()
-	} else {
-		initialise()
-	}
+	} //else if args == "node" {
+	// 	initialise()
+	// } else {
+	// 	initialise()
+	// }
 }
