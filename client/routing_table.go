@@ -1,18 +1,15 @@
 package client
 
 import (
-	"container/list"
 	"fmt"
 	"go-p2p/tree"
 	"strconv"
-
-	peerstore "github.com/libp2p/go-libp2p/core/peer"
-	multiaddr "github.com/multiformats/go-multiaddr"
 )
 
 type Bucket struct {
-	ID   string
-	List list.List
+	ID     string
+	MaxLen int
+	Queue  []tree.NodeAddr
 }
 
 type RoutingTable []Bucket
@@ -33,8 +30,6 @@ func xor(a, b []byte) ([]byte, error) {
 func xorStrings(s1, s2 string) (int, error) {
 	b1 := []byte(s1)
 	b2 := []byte(s2)
-
-	// Pad the shorter string with zero bytes to match the length of the longer string.
 	maxLen := len(b1)
 	if len(b2) > maxLen {
 		maxLen = len(b2)
@@ -43,18 +38,14 @@ func xorStrings(s1, s2 string) (int, error) {
 	copy(paddedB1, b1)
 	paddedB2 := make([]byte, maxLen)
 	copy(paddedB2, b2)
-
 	result, err := xor(paddedB1, paddedB2)
 	if err != nil {
 		return 0, err
 	}
-
-	// Convert the result to a binary string and count leading zeros.
 	binaryStr := ""
 	for _, b := range result {
-		binaryStr += fmt.Sprintf("%08b", b) // Convert each byte to an 8-bit binary string.
+		binaryStr += fmt.Sprintf("%08b", b)
 	}
-
 	leadingZeros := 0
 	for _, ch := range binaryStr {
 		if ch == '0' {
@@ -63,21 +54,26 @@ func xorStrings(s1, s2 string) (int, error) {
 			break
 		}
 	}
-
 	return leadingZeros, nil
 }
 
-// NewRoutingTable creates a new routing table based on the given ID.
+// NewRoutingTable creates a new routing table based on the given ID(hex format).
 func NewRoutingTable(ID string) RoutingTable {
-	tempID := ""
+	binaryID := tree.BinaryString(ID)
+	str1 := ""
+	str2 := ""
 	rt := RoutingTable{}
-	for _, char := range ID {
+	for _, char := range binaryID {
 		bit := int(char) - int('0')
+		bit = 1 - bit
 		bitStr := strconv.Itoa(bit)
-		tempID += bitStr
+		str2 = str1 + bitStr
 		bucket := Bucket{
-			ID: tempID,
+			ID:     str2,
+			MaxLen: tree.K,
+			Queue:  []tree.NodeAddr{},
 		}
+		str1 += string(char)
 		rt = append(rt, bucket)
 	}
 	return rt
@@ -86,27 +82,23 @@ func NewRoutingTable(ID string) RoutingTable {
 // ConstructRoutingTable constructs a routing table by merging the given routing tables.
 func ConstructRoutingTable(rt, prt RoutingTable) RoutingTable {
 	for i, bucket := range prt {
-		if bucket.ID == rt[i].ID {
-			rt[i].List = bucket.List
+		if i < len(rt) && (bucket.ID == rt[i].ID || rt[i].ID == bucket.ID[:len(rt[i].ID)] || bucket.ID == rt[i].ID[:len(bucket.ID)]) {
+			rt[i].Queue = bucket.Queue
 		}
 	}
 	return rt
 }
 
 // Ping checks if a peer is reachable.
-func Ping(peer *peerstore.AddrInfo) bool {
+func Ping(peer *tree.NodeAddr) bool {
 	// TODO: implement this
 	return false
 }
 
-// function to check if the bucket already contains the peer
-func (bkt *Bucket) contains(peer *peerstore.AddrInfo) bool {
-	for e := bkt.List.Front(); e != nil; e = e.Next() {
-		addrInfo, ok := e.Value.(*peerstore.AddrInfo)
-		if !ok {
-			return false
-		}
-		if addrInfo.ID == peer.ID {
+// contains checks if the bucket already contains the peer
+func (bkt *Bucket) contains(peer *tree.NodeAddr) bool {
+	for _, addrInfo := range bkt.Queue {
+		if addrInfo.Id == peer.Id {
 			return true
 		}
 	}
@@ -114,65 +106,31 @@ func (bkt *Bucket) contains(peer *peerstore.AddrInfo) bool {
 }
 
 // InsertIntoBucket inserts a peer into the bucket.
-func (bkt *Bucket) insertIntoBucket(peer *peerstore.AddrInfo) {
-	frontElement := bkt.List.Front()
-	if frontElement != nil {
-		if bkt.contains(peer) {
-			return
+func (bkt *Bucket) insertIntoBucket(peer *tree.NodeAddr) {
+	if len(bkt.Queue) < bkt.MaxLen {
+		if !bkt.contains(peer) {
+			bkt.Queue = append(bkt.Queue, *peer)
 		}
-		addrInfo, ok := frontElement.Value.(*peerstore.AddrInfo)
-		if !ok {
+	} else {
+		if Ping(&bkt.Queue[0]) {
 			return
-		}
-		if Ping(addrInfo) {
-			bkt.List.PushBack(peer)
-			bkt.List.Remove(frontElement)
-		} else if bkt.List.Len() < tree.K {
-			bkt.List.PushBack(peer)
+		} else {
+			bkt.Queue = append(bkt.Queue[1:], *peer)
 		}
 	}
 }
 
 // InsertIntoRoutingTable inserts a peer into the routing table.
-func (rt *RoutingTable) InsertIntoRoutingTable(ma multiaddr.Multiaddr) error {
-	peer, err := getPeerInfo(ma)
+func (rt *RoutingTable) InsertIntoRoutingTable(ma tree.NodeAddr) error {
+	me := GetMyAddrInfo()
+	myID := me.Id
+	peerID := ma.Id
+	bucketIndex, err := xorStrings(myID, peerID)
 	if err != nil {
 		return err
 	}
-
-	myID, err := getNodeID()
-	if err != nil {
-		return err
+	if bucketIndex < len(*rt) {
+		(*rt)[bucketIndex].insertIntoBucket(&ma)
 	}
-
-	peerID := peer.ID
-	bucketIndex, err := xorStrings(myID, peerID.String())
-	if err != nil {
-		return err
-	}
-
-	(*rt)[bucketIndex].insertIntoBucket(peer)
 	return nil
-}
-
-// getPeerInfo extracts peer information from the multiaddress.
-func getPeerInfo(ma multiaddr.Multiaddr) (*peerstore.AddrInfo, error) {
-	addr, err := multiaddr.NewMultiaddr(ma.String())
-	if err != nil {
-		return nil, err
-	}
-	peer, err := peerstore.AddrInfoFromP2pAddr(addr)
-	if err != nil {
-		return nil, err
-	}
-	return peer, nil
-}
-
-// getNodeID reads and decodes the node ID from a file.
-func getNodeID() (string, error) {
-	encodedID, err := ReadFromFile("../client/node_id.txt")
-	if err != nil {
-		return "", err
-	}
-	return DecodeNodeID(encodedID)
 }

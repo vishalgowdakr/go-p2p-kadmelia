@@ -2,92 +2,106 @@ package client
 
 import (
 	"fmt"
+	"go-p2p/tree"
 	"log"
 	"net"
 	"net/http"
 	"net/rpc"
-	"time"
-
-	peerstore "github.com/libp2p/go-libp2p/core/peer"
-	"github.com/multiformats/go-multiaddr"
 )
 
 type Client struct {
-	pingTimeout time.Duration
 }
 
 // New returns a new instance of the Kademlia client
 func New() *Client {
-	c := &Client{
-		pingTimeout: 3 * time.Second,
-	}
-
-	return c
+	return &Client{}
 }
 
-// TODO:
-type getargs struct {
-	peer *peerstore.AddrInfo
-	data *[]byte
-}
-
+// StartRPCServer starts the RPC server for the Kademlia client
 func StartRPCServer() {
-	server := new(Client)
-	rpc.Register(server)
-	rpc.HandleHTTP()
-	l, e := net.Listen("tcp", ":2233")
-	if e != nil {
-		log.Fatal("listen error:", e)
+	server := New()
+	err := rpc.Register(server)
+	if err != nil {
+		log.Fatal("Error registering RPC server:", err)
 	}
-	http.Serve(l, nil)
+	rpc.HandleHTTP()
+	listener, err := net.Listen("tcp", ":2233")
+	if err != nil {
+		log.Fatal("Listen error:", err)
+	}
+	log.Println("RPC server listening on port 2233")
+	err = http.Serve(listener, nil)
+	if err != nil {
+		log.Fatal("HTTP serve error:", err)
+	}
 }
 
-func GetChunk(chunkID *string, data *[]byte) error {
+// GetChunk retrieves a chunk of data by its ID
+func (client *Client) GetChunk(chunkID *string, data *[]byte) error {
 	store, err := NewChunkStore("file_chunks.db")
 	if err != nil {
 		fmt.Println("Error creating store:", err)
-		return nil
+		return err
 	}
 	defer store.Close()
+
 	retrievedChunk, err := store.Retrieve(*chunkID)
 	if err != nil {
 		fmt.Println("Error retrieving chunk:", err)
 		return err
 	}
-	*data = retrievedChunk.data
+
+	*data = retrievedChunk.Data
 	return nil
 }
 
-func (client *Client) GetRoutingTable(a *[]multiaddr.Multiaddr, rt *RoutingTable) error {
-	addrs := *a
-	peer := addrs[0]
-	myRoutingTable.InsertIntoRoutingTable(peer)
-	_, myrt := GetMyNodeID()
+// GetRoutingTable retrieves the current routing table and inserts a new node address
+func (client *Client) GetRoutingTable(a *tree.NodeAddr, rt *RoutingTable) error {
+	err := myRoutingTable.InsertIntoRoutingTable(*a)
+	if err != nil {
+		return fmt.Errorf("error inserting into routing table: %w", err)
+	}
+	myrt := GetMyRoutingTable()
 	*rt = myrt
 	return nil
 }
 
-type args struct {
-	peer  *peerstore.AddrInfo
-	peers *[]peerstore.AddrInfo
-	addrs *[]multiaddr.Multiaddr
+type FindNodeArgs struct {
+	peer  *tree.NodeAddr
+	peers *[]tree.NodeAddr
 }
 
-func (client *Client) FindNode(nodeID *string, a *args) error {
-	addrs := *a.addrs
-	peer := addrs[0]
-	myRoutingTable.InsertIntoRoutingTable(peer)
-	err := Findnode(*nodeID, a.peer, a.peers)
-	return err
-}
-
-func (client *Client) Store(chunk *FileChunk, a *[]multiaddr.Multiaddr) error {
-	addrs := *a
-	peer := addrs[0]
-	myRoutingTable.InsertIntoRoutingTable(peer)
-	err := Store(chunk)
-	if err != nil {
-		return err
+// FindNode finds a node by its ID and updates the routing table
+func (client *Client) FindNode(nodeID *string, a *FindNodeArgs) error {
+	if len(*a.peers) == 0 {
+		return fmt.Errorf("no peers provided")
 	}
+
+	peer := (*a.peers)[0]
+	err := myRoutingTable.InsertIntoRoutingTable(peer)
+	if err != nil {
+		return fmt.Errorf("error inserting into routing table: %w", err)
+	}
+
+	err = Findnode(*nodeID, a.peer, a.peers)
+	if err != nil {
+		return fmt.Errorf("error finding node: %w", err)
+	}
+
+	return nil
+}
+
+// Store stores a chunk of data and updates the routing table
+func (client *Client) Store(chunk *FileChunk, a *tree.NodeAddr) error {
+	err := myRoutingTable.InsertIntoRoutingTable(*a)
+	if err != nil {
+		return fmt.Errorf("error inserting into routing table: %w", err)
+	}
+
+	err = Store(chunk)
+	if err != nil {
+		return fmt.Errorf("error storing chunk: %w", err)
+	}
+
 	return nil
 }

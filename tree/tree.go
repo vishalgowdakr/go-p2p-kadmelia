@@ -3,8 +3,6 @@ package tree
 import (
 	"fmt"
 	"strings"
-
-	peerstore "github.com/libp2p/go-libp2p/core/peer"
 )
 
 const K = 2
@@ -12,8 +10,8 @@ const K = 2
 const IdLength = 256
 
 type NodeAddr struct {
-	Id   string
-	Host *peerstore.AddrInfo
+	Id            string
+	ListenAddress string
 }
 
 type Node struct {
@@ -37,8 +35,32 @@ func NewNode(addr NodeAddr) *Node {
 	return &Node{Addr: &addr}
 }
 
+func BinaryString(hexId string) string {
+
+	// Convert hexadecimal to binary
+	binaryID := ""
+	for _, char := range hexId {
+		switch {
+		case char >= '0' && char <= '9':
+			val := int(char - '0')
+			binaryID += fmt.Sprintf("%04b", val)
+		case char >= 'a' && char <= 'f':
+			val := int(char - 'a' + 10)
+			binaryID += fmt.Sprintf("%04b", val)
+		case char >= 'A' && char <= 'F':
+			val := int(char - 'A' + 10)
+			binaryID += fmt.Sprintf("%04b", val)
+		default:
+			// Handle invalid characters if needed
+			continue
+		}
+	}
+
+	return binaryID
+}
+
 func (tree *Tree) Insert(node *Node) bool {
-	binaryId := stringToBinary(node.Addr.Id)
+	binaryId := BinaryString(node.Addr.Id)
 	// Check if tree or node is nil
 	if tree == nil || tree.Head == nil || node == nil {
 		return false
@@ -127,7 +149,7 @@ func FindArbNode(node *Node) *Node {
 }
 
 func (tree Tree) FindNode(id string) *Node {
-	binaryId := stringToBinary(id)
+	binaryId := BinaryString(id)
 	if tree.Head == nil {
 		return nil
 	}
@@ -174,15 +196,6 @@ func (tree Tree) GetKNearestNodes(id string) []NodeAddr {
 		}
 	}
 	return knodes
-}
-
-func stringToBinary(s string) string {
-	result := ""
-	for _, c := range s {
-		binary := fmt.Sprintf("%08b", c)
-		result += binary
-	}
-	return result
 }
 
 func strToIntArr(str string) []int {

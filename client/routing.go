@@ -1,32 +1,33 @@
 package client
 
 import (
+	"go-p2p/tree"
 	"log"
-
-	peerstore "github.com/libp2p/go-libp2p/core/peer"
 )
 
-func Findnode(nodeID string, peer *peerstore.AddrInfo, peers *[]peerstore.AddrInfo) error {
-	clientId, rt := GetMyNodeID()
-	bucketIndex, err := xorStrings(clientId, nodeID)
+func Findnode(nodeID string, peer *tree.NodeAddr, peers *[]tree.NodeAddr) error {
+	client := GetMyAddrInfo()
+	bucketIndex, err := xorStrings(client.Id, nodeID)
 	if err != nil {
 		log.Fatal(err)
 	}
-	list := rt[bucketIndex].List
-	curr := list.Back()
+	rt := GetMyRoutingTable()
+	list := rt[bucketIndex].Queue
+	i := 0
 
 	// Assume bucket_array is a predefined array of peerstore.AddrInfo
-	var bucket_array []peerstore.AddrInfo
+	//
+	var bucket_array []tree.NodeAddr
 
 	// Iterate through the list to find the nodeID
-	for curr != nil {
-		node := curr.Value.(peerstore.AddrInfo) // Adjust this line based on the actual type stored in the list
-		if node.ID.String() == nodeID {
-			*peer = node
+	for i < len(list) {
+		curr := list[i]
+		if list[i].Id == nodeID {
+			*peer = curr
 			return nil
 		}
-		bucket_array = append(bucket_array, curr.Value.(peerstore.AddrInfo))
-		curr = curr.Prev()
+		bucket_array = append(bucket_array, curr)
+		i++
 	}
 
 	// If nodeID is not found

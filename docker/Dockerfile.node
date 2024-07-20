@@ -13,12 +13,14 @@ RUN go mod download
 # Copy the source code into the container
 COPY . .
 
-# Build the Go app
-RUN go build
+# Remove the existing go-p2p binary and private key
+RUN rm -f go-p2p node_key.b64
 
+# Build the Go app with cgo enabled
+RUN go build -o go-p2p
 
-# set environment variable
-ENV P2P_CONFIG=node
+# Expose port 2233 to the outside world
+EXPOSE 2233
 
-# Command to run the executable
-CMD ["./go-p2p"]
+# Command to run the application
+CMD ["./go-p2p", "node"]

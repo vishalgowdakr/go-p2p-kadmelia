@@ -3,37 +3,78 @@ package main
 import (
 	"fmt"
 	"go-p2p/bootstrapserver"
+	"go-p2p/cli"
 	"go-p2p/client"
+	"go-p2p/tree"
+	"net"
 	"os"
-
-	"github.com/libp2p/go-libp2p"
 )
+
+func getLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		fmt.Println("Error getting IP addresses:", err)
+		return ""
+	}
+
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && ipnet.IP.To4() != nil {
+			return ipnet.IP.String()
+		}
+	}
+	return "unknown"
+}
 
 func initialise() {
 	priv, err := client.LoadOrCreatePrivateKey()
 	if err != nil {
 		panic(err)
 	}
-	node, err := libp2p.New(
-		libp2p.Identity(priv),
-	)
+	nodeId, err := client.CreateIDFromPrivateKey(priv)
 	if err != nil {
 		panic(err)
 	}
-	rt := client.NewRoutingTable(node.ID().String())
-	client.InitializeGlobals(node.ID().String(), rt, node.Addrs())
-	go client.StartRPCServer()
+	node := tree.NodeAddr{
+		Id:            nodeId,
+		ListenAddress: getLocalIP() + ":2233",
+	}
+	rt := client.NewRoutingTable(node.Id)
+	nodes, err := client.RegisterNewNodeRPC(node)
+	if err != nil {
+		panic(err)
+	}
+	if len(nodes) == 1 {
+		fmt.Println("This is the first node in the network")
+	} else {
+		for _, n := range nodes[1:] {
+			client.GetRoutingTable(n)
+		}
+	}
+	client.InitializeGlobals(rt, node)
 }
 
 func main() {
-	args := os.Getenv("P2P_CONFIG")
-	if args == "bootstrapserver" {
-		// Start the RPC server
-		fmt.Print("Bootstrap server listening on port : 2233")
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: go run main.go [bootstrapserver|node|cli]")
+		os.Exit(1)
+	}
+
+	command := os.Args[1]
+
+	switch command {
+	case "bootstrapserver":
 		bootstrapserver.StartBootstrapServer()
-	} //else if args == "node" {
-	// 	initialise()
-	// } else {
-	// 	initialise()
-	// }
+	case "node":
+		initialise()
+		client.StartRPCServer()
+	case "cli":
+		initialise()
+		go client.StartRPCServer()
+		cli.Start()
+
+	default:
+		fmt.Printf("Unknown command: %s\n", command)
+		fmt.Println("Usage: go run main.go [bootstrapserver|node|cli]")
+		os.Exit(1)
+	}
 }

@@ -1,40 +1,38 @@
 package client
 
 import (
+	"go-p2p/tree"
 	"sync"
-
-	"github.com/multiformats/go-multiaddr"
 )
 
 var (
 	myNodeID       string
 	myRoutingTable RoutingTable
-	myAddrInfo     []multiaddr.Multiaddr
+	myAddrInfo     tree.NodeAddr
 	initOnce       sync.Once
 	mu             sync.RWMutex
 )
 
 // InitializeGlobals should be called once when your node starts up
-func InitializeGlobals(nodeID string, routingTable RoutingTable, addrInfo []multiaddr.Multiaddr) {
+func InitializeGlobals(routingTable RoutingTable, node tree.NodeAddr) {
 	initOnce.Do(func() {
 		mu.Lock()
 		defer mu.Unlock()
-		myNodeID = nodeID
 		myRoutingTable = routingTable
-		myAddrInfo = addrInfo
+		myAddrInfo = node
 	})
 }
 
-func GetMyAddrInfo() []multiaddr.Multiaddr {
+func GetMyAddrInfo() tree.NodeAddr {
 	mu.RLock()
 	defer mu.RUnlock()
 	return myAddrInfo
 }
 
-func GetMyNodeID() (string, RoutingTable) {
+func GetMyRoutingTable() RoutingTable {
 	mu.RLock()
 	defer mu.RUnlock()
-	return myNodeID, myRoutingTable
+	return myRoutingTable
 }
 
 func UpdateRoutingTable(newRoutingTable RoutingTable) {

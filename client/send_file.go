@@ -4,58 +4,56 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"go-p2p/tree"
 	"io"
 	"log"
 	"net/rpc"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/ipfs/go-cid"
-	peerstore "github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multihash"
 )
 
 type TorrentFile struct {
-	filename     string
-	filesize     int
-	filechunksId map[string]peerstore.AddrInfo
+	Filename       string
+	Filesize       int
+	FileChunkIndex map[string]int
+	FilechunksId   map[string]tree.NodeAddr
 }
 
 type FileChunk struct {
-	id    string
-	index int
-	data  []byte
-	owner peerstore.AddrInfo
+	Id    string
+	Index int
+	Data  []byte
 }
 
 const chunkSize = 1 * 1024 * 1024 // 1 MB chunks
 
-func SendChunk(filechunk FileChunk) (peerstore.AddrInfo, error) {
-	peers, err := GetKNearestNodesRPC(filechunk.id)
+func SendChunk(filechunk FileChunk) (tree.NodeAddr, error) {
+	peers, err := GetKNearestNodesRPC(filechunk.Id)
 	if err != nil {
-		return peerstore.AddrInfo{}, err
+		return tree.NodeAddr{}, err
 	}
 
 	for _, peer := range peers {
-		ip, port := getIpAndPort(*peer.Host)
-		if ip == "" || port == "" {
-			continue
-		}
-		client, err := rpc.DialHTTP("tcp", ip+port)
+
+		client, err := rpc.DialHTTP("tcp", peer.ListenAddress)
 		if err != nil {
 			log.Fatal("dialing:", err)
 		}
-		reply := ""
-		error := client.Call("Client.Store", &filechunk, &reply)
-		if error != nil && reply != "OK" {
+		error := client.Call("Client.Store", &filechunk, &tree.NodeAddr{})
+		if error != nil {
 			log.Fatal("error:", error)
+			continue
 		}
-		return *peer.Host, nil
+		return peer, nil
 	}
-	return peerstore.AddrInfo{}, fmt.Errorf("No peers available to store chunk")
+	return tree.NodeAddr{}, fmt.Errorf("No peers available to store chunk")
 }
 
-func SendFile(filepath string, sendChunk func(FileChunk) (peerstore.AddrInfo, error)) error {
+func SendFile(filepath string, sendChunk func(FileChunk) (tree.NodeAddr, error)) error {
 	file, err := os.Open(filepath)
 	if err != nil {
 		return err
@@ -70,12 +68,19 @@ func SendFile(filepath string, sendChunk func(FileChunk) (peerstore.AddrInfo, er
 	filename := strings.Split(filepath, "/")[len(strings.Split(filepath, "/"))-1]
 	totalSize := fileInfo.Size()
 	torrentFile := TorrentFile{
-		filename: filename,
-		filesize: int(totalSize),
+		Filename:       filename,
+		Filesize:       int(totalSize),
+		FileChunkIndex: make(map[string]int),
+		FilechunksId:   make(map[string]tree.NodeAddr),
 	}
-	fileChunksId := make([]string, 0)
 
-	/* 	sentBytes := int64(0) */
+	var wg sync.WaitGroup
+	errChan := make(chan error, int(totalSize/chunkSize)+1)
+	resultChan := make(chan struct {
+		cid   string
+		index int
+		owner tree.NodeAddr
+	}, int(totalSize/chunkSize)+1)
 
 	reader := bufio.NewReader(file)
 	buffer := make([]byte, chunkSize)
@@ -90,34 +95,57 @@ func SendFile(filepath string, sendChunk func(FileChunk) (peerstore.AddrInfo, er
 			return err
 		}
 
-		chunk := buffer[:n]
-		cid, err := getContentId(chunk)
-		if err != nil {
-			return err
-		}
+		chunk := make([]byte, n) // Create a new slice to avoid data race
+		copy(chunk, buffer[:n])
 
-		fileChunk := FileChunk{
-			id:    cid,
-			index: index,
-			data:  chunk,
-		}
+		wg.Add(1)
+		go func(index int, chunk []byte) {
+			defer wg.Done()
+
+			cid, err := getContentId(chunk)
+			if err != nil {
+				errChan <- err
+				return
+			}
+
+			fileChunk := FileChunk{
+				Id:    cid,
+				Index: index,
+				Data:  chunk,
+			}
+
+			owner, err := sendChunk(fileChunk)
+			if err != nil {
+				errChan <- err
+				return
+			}
+
+			resultChan <- struct {
+				cid   string
+				index int
+				owner tree.NodeAddr
+			}{cid, index, owner}
+		}(index, chunk)
+
 		index++
-		fileChunksId = append(fileChunksId, cid)
-		owner, err := sendChunk(fileChunk)
-		if err != nil {
-			return err
-		}
-		torrentFile.filechunksId[cid] = owner
-
-		//sentBytes += int64(n)
-		//progress := float64(sentBytes) / float64(totalSize) * 100
-		// Log or update progress here
-		// log.Printf("Progress: %.2f%%", progress)
 	}
-	//serialize torrent file and save it
-	serializeTorrentFile(torrentFile)
 
-	return nil
+	go func() {
+		wg.Wait()
+		close(resultChan)
+		close(errChan)
+	}()
+
+	for result := range resultChan {
+		torrentFile.FilechunksId[result.cid] = result.owner
+		torrentFile.FileChunkIndex[result.cid] = result.index
+	}
+
+	if len(errChan) > 0 {
+		return <-errChan // Return the first error encountered
+	}
+
+	return serializeTorrentFile(torrentFile)
 }
 
 func serializeTorrentFile(torrentFile TorrentFile) error {
@@ -127,7 +155,7 @@ func serializeTorrentFile(torrentFile TorrentFile) error {
 		return fmt.Errorf("error serializing torrent file: %w", err)
 	}
 	//save the serialized data to a file
-	err = os.WriteFile("torrent/"+torrentFile.filename+".torrent", serializedData, 0644)
+	err = os.WriteFile("torrent/"+torrentFile.Filename+".torrent", serializedData, 0644)
 	if err != nil {
 		return fmt.Errorf("error saving torrent file: %w", err)
 	}
@@ -156,30 +184,4 @@ func getContentId(data []byte) (string, error) {
 	}
 	c := cid.NewCidV1(cid.Raw, mh)
 	return c.String(), nil
-}
-
-func getIpAndPort(addr peerstore.AddrInfo) (string, string) {
-	// Use the first multiaddr in the list
-	if len(addr.Addrs) == 0 {
-		return "", ""
-	}
-
-	multiaddr := addr.Addrs[0]
-
-	// Extract the IP address and port
-	var ip, port string
-
-	// Split the multiaddr into its components
-	parts := strings.Split(multiaddr.String(), "/")
-
-	for i := 1; i < len(parts); i += 2 {
-		switch parts[i] {
-		case "ip4", "ip6":
-			ip = parts[i+1]
-		case "tcp", "udp":
-			port = parts[i+1]
-		}
-	}
-
-	return ip, port
 }

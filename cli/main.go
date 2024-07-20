@@ -92,6 +92,7 @@ func downloadFile(file string) {
 		fmt.Println("Error downloading file:", err)
 	}
 }
+
 func performWork(m model) tea.Cmd {
 	if m.state == loadingState {
 		if m.substate == uploadState {
@@ -101,6 +102,7 @@ func performWork(m model) tea.Cmd {
 		}
 	}
 	return func() tea.Msg {
+		time.Sleep(2 * time.Second)
 		return workCompleteMsg{}
 	}
 }
@@ -156,7 +158,7 @@ func initialModel() model {
 
 	fp := filepicker.New()
 	fp.Height = 10
-	fp.AllowedTypes = []string{".mod", ".sum", ".go", ".txt", ".md", ".pdf"}
+	fp.AllowedTypes = []string{".mod", ".sum", ".go", ".txt", ".md", ".pdf", ".torrent", ".gz"}
 	fp.CurrentDirectory, _ = os.Getwd()
 	s := spinner.New()
 	s.Spinner = spinner.Dot
@@ -199,12 +201,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state = fpState
 				}
 				return m, nil
-			} else if m.state == fpState && m.selectedFile != "" {
-				m.state = loadingState
-				return m, tea.Batch(
-					m.loader.Tick,
-					performWork(m),
-				)
 			}
 		case "esc":
 			var cmd tea.Cmd
@@ -230,7 +226,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.viewport, viewportcmd = m.viewport.Update(msg)
 
 	if m.state == loadingState {
-		return m, m.loader.Tick
+		return m, tea.Batch(m.loader.Tick, performWork(m))
 	}
 
 	if didSelect, path := m.filepicker.DidSelectFile(msg); didSelect {
@@ -238,7 +234,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = loadingState
 		return m, tea.Batch(
 			m.loader.Tick,
-			performWork(m),
 		)
 	}
 
@@ -283,14 +278,14 @@ func (m model) View() string {
 		} else {
 			s.WriteString(m.list.View())
 		}
-		id, _ := client.GetMyNodeID()
-		s.WriteString("Your ID is: " + lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Render(id) + "\n")
+		client := client.GetMyAddrInfo()
+		s.WriteString("\nYour ID is: " + lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Render(client.Id) + "\n")
 
 	case loadingState:
 		if m.substate == uploadState {
-			s.WriteString(fmt.Sprintf("%s Please wait while your file is being uploaded to our network...", m.loader.View()))
+			s.WriteString(fmt.Sprintf("%s Uploading %s to the network...", m.loader.View(), m.selectedFile))
 		} else {
-			s.WriteString(fmt.Sprintf("%s Please wait while your file is being downloaded from our network", m.loader.View()))
+			s.WriteString(fmt.Sprintf("%s Downloading %s from the network...", m.loader.View(), m.selectedFile))
 		}
 
 	case summaryState:
